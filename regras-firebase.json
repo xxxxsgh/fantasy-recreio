@@ -1,0 +1,22 @@
+{
+  "rules": {
+    ".read": true,
+    "meta":      { ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true" },
+    "jogadores": { ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true" },
+    "jogos":     { ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true" },
+    "rodadas":   { ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true" },
+    "pontos":    { ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true" },
+    "times": {
+      "$uid": {
+        ".write": "auth != null && ((auth.uid === $uid && root.child('meta/status').val() === 'aberto') || (auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true))",
+        ".validate": "!newData.exists() || newData.hasChildren(['gol', 'linha', 'cap'])"
+      }
+    },
+    "usuarios": {
+      "$uid": {
+        ".write": "auth != null && (auth.uid === $uid || (auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true))",
+        ".validate": "!newData.exists() || (newData.child('nome').isString() && newData.child('nome').val().length >= 1 && newData.child('nome').val().length <= 20)"
+      }
+    }
+  }
+}

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fantasy do Recreio</title>
+<meta name="description" content="Fantasy dos jogos de futebol do recreio">
+<meta name="theme-color" content="#ff5a1f">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Fantasy">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Quadra de escola: piso azul, linhas laranja, papel claro. Uma coluna, abas embaixo. */
+:root{
+  --bg:#eef1f5; --card:#ffffff; --card2:#f6f8fb; --ink:#111a2c; --mut:#5c6a7e; --line:#dbe1e9;
+  --acc:#ff5a1f; --acc-ink:#ffffff; --good:#0e9f6e; --bad:#e5484d; --gold:#f2a900;
+  --court:#1f5fa8; --court-line:rgba(255,255,255,.55);
+  --disp:'Bricolage Grotesque','Arial Black',system-ui,sans-serif;
+  --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0d121a; --card:#151c27; --card2:#1b2431; --ink:#e8eef6; --mut:#8c99ab; --line:#263243;
+  --acc:#ff6a33; --good:#2fbf8a; --bad:#ff6b6f; --gold:#ffc23d; --court:#173f6d; --court-line:rgba(255,255,255,.4); color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:none;background:none;touch-action:manipulation}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+input,select{font-size:16px}
+.wrap{max-width:640px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px calc(96px + env(safe-area-inset-bottom,0px))}
+h1,h2,h3{font-family:var(--disp);margin:0;letter-spacing:-.2px;text-wrap:balance}
+h2{font-size:22px}h3{font-size:17px}
+.num{font-variant-numeric:tabular-nums}
+.mut{color:var(--mut)}.small{font-size:13px}.tiny{font-size:11px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut)}
+.stack{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;gap:10px;align-items:center}
+.row>.grow{flex:1;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 16px;border-radius:12px;font-weight:700;background:var(--acc);color:var(--acc-ink);width:100%}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.sm{width:auto;padding:8px 12px;font-size:14px;border-radius:10px}
+.btn.danger{background:var(--bad);color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.seg{display:flex;gap:6px}
+.seg button{flex:1 1 0;min-width:0;padding:9px 6px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-weight:600;font-size:14px}
+.seg button.on{border-color:var(--acc);color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;background:var(--card2);border:1px solid var(--line)}
+.pill.open{color:var(--good);border-color:var(--good)}
+.pill.closed{color:var(--bad);border-color:var(--bad)}
+.tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid var(--line);color:var(--mut)}
+.inp{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card2)}
+.warn{color:var(--bad);font-weight:600}
+.okc{color:var(--good);font-weight:600}
+
+/* topo */
+.top{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.logo{width:40px;height:40px;border-radius:12px;background:var(--acc);display:grid;place-items:center;flex:none}
+.logo svg{width:26px;height:26px}
+.top h1{font-size:22px;line-height:1}
+.top .sub{font-size:12px;color:var(--mut);margin-top:3px}
+.av{width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none}
+
+/* quadra */
+.court{position:relative;aspect-ratio:4/5;max-width:440px;width:100%;margin:0 auto;border-radius:16px;background:var(--court);overflow:hidden}
+.court::before{content:"";position:absolute;inset:10px;border:2px solid var(--court-line);border-radius:6px}
+.court::after{content:"";position:absolute;left:10px;right:10px;top:50%;border-top:2px solid var(--court-line)}
+.court .circ{position:absolute;left:50%;top:50%;width:26%;aspect-ratio:1;border:2px solid var(--court-line);border-radius:50%;transform:translate(-50%,-50%)}
+.court .area{position:absolute;left:50%;transform:translateX(-50%);width:46%;height:15%;border:2px solid var(--court-line)}
+.court .area.b{bottom:10px;border-bottom:none;border-radius:80px 80px 0 0}
+.court .area.t{top:10px;border-top:none;border-radius:0 0 80px 80px}
+.slot{position:absolute;transform:translate(-50%,-50%);width:104px;z-index:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.slot .sh{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.14);border:2px dashed rgba(255,255,255,.7);color:#fff;font-family:var(--disp);font-size:22px}
+.slot.full .sh{background:#fff;border:3px solid var(--acc);color:var(--ink);font-size:17px}
+.slot.sel .sh{box-shadow:0 0 0 4px rgba(255,255,255,.55)}
+.slot .nm{font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);max-width:104px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .pr{font-size:11px;color:rgba(255,255,255,.85)}
+.slot .cap{position:absolute;top:-4px;right:22px;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#111;font-size:12px;font-weight:800;display:grid;place-items:center;border:2px solid #fff}
+.slot .pts{position:absolute;top:-6px;left:18px;min-width:24px;padding:1px 5px;border-radius:999px;background:var(--good);color:#fff;font-size:11px;font-weight:800;text-align:center}
+.s0{top:17%;left:50%}.s1{top:43%;left:20%}.s2{top:43%;left:80%}.s3{top:63%;left:50%}.sg{top:86%;left:50%}
+.budget{height:8px;border-radius:4px;background:var(--card2);overflow:hidden;border:1px solid var(--line)}
+.budget i{display:block;height:100%;background:var(--good)}
+.budget.over i{background:var(--bad)}
+
+/* listas */
+.plist{display:flex;flex-direction:column;gap:6px}
+.pl{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--line);text-align:left;width:100%}
+.pl.me{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.pl .nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl .sub{font-size:12px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
+.price{font-family:var(--disp);font-size:18px;text-align:right;white-space:nowrap}
+.up{color:var(--good)}.dn{color:var(--bad)}
+.rk{display:grid;grid-template-columns:28px auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--card2);border:1px solid var(--line);width:100%;text-align:left}
+.rk .pos{font-family:var(--disp);font-size:18px;text-align:center;color:var(--mut)}
+.rk.me{border-color:var(--acc)}
+.rk .pt{font-family:var(--disp);font-size:20px;text-align:right}
+.tm{display:flex;flex-wrap:wrap;gap:6px;padding:4px 2px 2px}
+
+/* jogos */
+.game{display:flex;flex-direction:column;gap:8px}
+.score{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.score b{font-family:var(--disp);font-size:30px}
+.score .ta{text-align:right}
+.side{display:flex;flex-direction:column;gap:3px;font-size:13px}
+.gl{display:flex;justify-content:space-between;gap:8px}
+.gl .p{font-weight:700;color:var(--good);white-space:nowrap}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cols>*{min-width:0}
+
+/* admin */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card2);font-weight:600;font-size:14px}
+.chip.a{background:#e8f0ff;border-color:#3f74d8;color:#1d4fb8}
+.chip.b{background:#fff0e8;border-color:var(--acc);color:#c2410c}
+@media (prefers-color-scheme:dark){.chip.a{background:#16274a;color:#9ec0ff}.chip.b{background:#3a1d10;color:#ffb48f}}
+.step{display:flex;align-items:center;gap:6px}
+.step button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-weight:800;font-size:18px}
+.step b{min-width:22px;text-align:center;font-family:var(--disp);font-size:18px}
+.ed{display:grid;grid-template-columns:1fr 92px 84px;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.ed .inp{padding:8px}
+.ed .ctl{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* nav */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+nav.tabs .in{max-width:640px;margin:0 auto;display:flex}
+nav.tabs button{flex:1;padding:9px 2px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:700;color:var(--mut)}
+nav.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button.on{color:var(--acc)}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw;text-align:center}
+#toast.on{opacity:1}
+.demo{background:#fff7d6;color:#6b5000;border:1px solid #f2d27a;border-radius:12px;padding:8px 12px;font-size:13px}
+@media (prefers-color-scheme:dark){.demo{background:#3a2f0b;color:#ffd977;border-color:#6b5717}}
+.empty{padding:18px;text-align:center;color:var(--mut)}
+details>summary{cursor:pointer;font-weight:700;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="empty">Carregando…</div></div>
+<nav class="tabs" id="nav" hidden><div class="in" id="navin"></div></nav>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+/* =====================================================================
+   FANTASY DO RECREIO
+   Arquivo único. Dados no Firebase Realtime Database, login com Google.
+   Aberto direto do computador (file://) ou com ?demo no endereço, roda
+   no MODO DEMONSTRAÇÃO: dados ficam só neste aparelho, sem Firebase.
+   ===================================================================== */
+
+const CONFIG={
+  nome:'Fantasy do Recreio',
+  admin:'rafaelpcardoso07@gmail.com',
+  firebase:{
+    apiKey:"AIzaSyDCsnCj6R923hRMlbDH9g2fxpYDEss4IDU",
+    authDomain:"fantasy-recreio.firebaseapp.com",
+    databaseURL:"https://fantasy-recreio-default-rtdb.firebaseio.com",
+    projectId:"fantasy-recreio",
+    storageBucket:"fantasy-recreio.firebasestorage.app",
+    messagingSenderId:"997542364966",
+    appId:"1:997542364966:web:8caf0044040cc320bb63e7"
+  }
+};
+/* pontuação de cada jogo */
+const PTS={jogou:1,vitoria:2,gol:3,goleiroVitoria:3,craque:4};
+/* preços: começam em 10 e mudam conforme a pontuação da rodada */
+const PRECO={base:10,min:3,max:25,k:0.35,naoJogou:0.2};
+const ORC_PADRAO=55;
+/* lista inicial (o admin cria no banco pelo app) */
+const SEED=[
+  ['Rafael','LINHA','3º ano'],['Felipe','LINHA','3º ano'],['Ian','LINHA','3º ano'],['Caetano','GOL','3º ano'],['Casao','LINHA','3º ano'],
+  ['Ernesto A.','LINHA','3º ano'],['Ernesto T.','LINHA','3º ano'],['Vicente','LINHA','3º ano'],['Luiz Paulo','LINHA','3º ano'],['Bayao','LINHA','3º ano'],
+  ['Levi','GOL','2º ano'],['Luiz A.','LINHA','2º ano'],['Renan','LINHA','2º ano'],['Mateus','LINHA','2º ano'],
+  ['Arthur','LINHA','1º ano'],['Pedro','LINHA','1º ano'],['Tales','LINHA','1º ano'],['Sofia','GOL','1º ano'],['Guilherme','LINHA','1º ano'],['Bruno','GOL','1º ano'],['Isa','LINHA','1º ano']
+];
+const ANOS=['1º ano','2º ano','3º ano','Outro'];
+
+const DEMO=location.protocol==='file:'||new URLSearchParams(location.search).has('demo');
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const r1=v=>Math.round(v*10)/10;
+const cs=v=>'C$ '+(Number(v)||0).toFixed(1).replace('.',',');
+const n1=v=>(Number(v)||0).toFixed(1).replace('.',',');
+const today=()=>new Date().toLocaleDateString('sv');
+const dmy=s=>{if(!s)return '';const [y,m,d]=s.split('-');return `${d}/${m}`;};
+let toastT;function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2400);}
+function showErr(e){console.error(e);const m=String(e&&(e.code||e.message)||e);
+  toast(/PERMISSION_DENIED|permission/i.test(m)?'Sem permissão pra isso.':/network|offline/i.test(m)?'Sem conexão. Tente de novo.':/popup-closed|cancelled/i.test(m)?'Login cancelado.':/unauthorized-domain/i.test(m)?'Domínio não autorizado no Firebase.':'Algo deu errado: '+m);}
+
+/* ===================== BACKEND ===================== */
+let api;
+function mockApi(){
+  const KEY='fr_demo_db';let tree={};try{tree=JSON.parse(localStorage.getItem(KEY)||'{}')||{};}catch(e){}
+  const subs=[],aSubs=[];let user=null;
+  const segs=p=>p.split('/').filter(Boolean);
+  const clone=v=>v===undefined?null:JSON.parse(JSON.stringify(v));
+  const get=p=>segs(p).reduce((o,k)=>o==null?undefined:o[k],tree);
+  const put=(p,v)=>{const s=segs(p);let o=tree;for(let i=0;i<s.length-1;i++){if(o[s[i]]==null||typeof o[s[i]]!=='object')o[s[i]]={};o=o[s[i]];}
+    if(v==null)delete o[s[s.length-1]];else o[s[s.length-1]]=clone(v);};
+  const flush=()=>{try{localStorage.setItem(KEY,JSON.stringify(tree));}catch(e){}subs.forEach(([p,cb])=>cb(clone(get(p))));};
+  const users={admin:{uid:'demo-admin',email:CONFIG.admin,name:'Rafael (demo)'},ana:{uid:'demo-ana',email:'ana@demo',name:'Ana Teste'},beto:{uid:'demo-beto',email:'beto@demo',name:'Beto Teste'}};
+  return {
+    onAuth:cb=>{aSubs.push(cb);cb(user);},
+    login:async(k)=>{user=users[k||'admin'];aSubs.forEach(f=>f(user));},
+    logout:async()=>{user=null;aSubs.forEach(f=>f(null));},
+    listen:(p,cb)=>{subs.push([p,cb]);cb(clone(get(p)));},
+    set:async(p,v)=>{put(p,v);flush();},
+    update:async(m)=>{for(const k in m)put(k,m[k]);flush();},
+    pushKey:()=>'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    reset:()=>{tree={};flush();}
+  };
+}
+async function fireApi(){
+  const V='10.12.2',B=`https://www.gstatic.com/firebasejs/${V}/`;
+  const [A,Au,D]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-database.js')]);
+  const app=A.initializeApp(CONFIG.firebase),auth=Au.getAuth(app),db=D.getDatabase(app);
+  Au.getRedirectResult(auth).catch(showErr);
+  return {
+    onAuth:cb=>Au.onAuthStateChanged(auth,u=>cb(u?{uid:u.uid,email:u.email,name:u.displayName||''}:null)),
+    login:async()=>{const p=new Au.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+      try{await Au.signInWithPopup(auth,p);}catch(e){
+        if(['auth/popup-blocked','auth/operation-not-supported-in-this-environment','auth/cancelled-popup-request'].includes(e.code))await Au.signInWithRedirect(auth,p);else throw e;}},
+    logout:()=>Au.signOut(auth),
+    listen:(p,cb)=>D.onValue(D.ref(db,p),s=>cb(s.val()),showErr),
+    set:(p,v)=>D.set(D.ref(db,p),v),
+    update:m=>D.update(D.ref(db),m),
+    pushKey:p=>D.push(D.ref(db,p)).key
+  };
+}
+
+/* ===================== ESTADO ===================== */
+const S={meta:null,jog:{},jogos:{},times:{},users:{},pontos:{},rodadas:{},ready:{}};
+let ME=null,draft=null;
+const ui={tab:'time',sel:null,pick:null,filtro:'todos',ano:'todos',sort:'preco',rk:'geral',open:null,form:null,arm:null,nick:false,newP:{nome:'',pos:'LINHA',ano:'1º ano'}};
+const isAdmin=()=>!!ME&&ME.email===CONFIG.admin;
+const R=()=>S.meta?S.meta.rodada:1;
+const aberto=()=>!!S.meta&&S.meta.status==='aberto';
+const orc=()=>(S.meta&&S.meta.orc)||ORC_PADRAO;
+const J=id=>S.jog[id];
+const pName=id=>J(id)?J(id).nome:'(removido)';
+const rKey=r=>'r'+r;
+const roundsDone=()=>Object.keys(S.rodadas||{}).map(k=>+k.slice(1)).filter(Boolean).sort((a,b)=>a-b);
+
+/* ===================== CÁLCULOS ===================== */
+function gamePts(g){
+  const out={},win=g.pa>g.pb?'a':g.pb>g.pa?'b':null;
+  ['a','b'].forEach(side=>Object.keys(g[side]||{}).forEach(pid=>{
+    let p=PTS.jogou;if(win===side)p+=PTS.vitoria;p+=((g.gols||{})[pid]||0)*PTS.gol;
+    if(win===side&&(side==='a'?g.ga:g.gb)===pid)p+=PTS.goleiroVitoria;if(g.craque===pid)p+=PTS.craque;out[pid]=(out[pid]||0)+p;}));
+  return out;
+}
+function gamesOf(r){return Object.entries(S.jogos||{}).filter(([,g])=>g.r===r).sort((a,b)=>(a[1].data||'').localeCompare(b[1].data||'')||(a[1].ts||0)-(b[1].ts||0));}
+function roundPts(r){const pp={},jc={};gamesOf(r).forEach(([,g])=>{const gp=gamePts(g);for(const k in gp){pp[k]=(pp[k]||0)+gp[k];jc[k]=(jc[k]||0)+1;}});return {pp,jc};}
+function teamIds(t){return t?[t.gol].concat(t.linha||[]).filter(Boolean):[];}
+function teamPts(t,pp){if(!t)return 0;let s=0;teamIds(t).forEach(id=>s+=pp[id]||0);if(t.cap&&teamIds(t).includes(t.cap))s+=pp[t.cap]||0;return s;}
+function teamCost(t){return r1(teamIds(t).reduce((a,id)=>a+((J(id)&&J(id).preco)||PRECO.base),0));}
+function budgetOf(uid){const p=S.pontos[uid];return p&&p.cart!=null?p.cart:orc();}
+function pStats(pid){
+  let pts=0,j=0,last=null;roundsDone().forEach(r=>{const x=S.rodadas[rKey(r)]&&S.rodadas[rKey(r)].jog&&S.rodadas[rKey(r)].jog[pid];if(x){pts+=x.pts||0;j+=x.j||0;last=x;}});
+  return {pts,j,media:j?pts/j:null,last,vari:last?r1((last.p1||0)-(last.p0||0)):0};
+}
+function validTeam(t){
+  const errs=[];if(!t)return ['Monte seu time.'];
+  if(!t.gol)errs.push('Falta o goleiro.');else if(!J(t.gol)||J(t.gol).pos!=='GOL')errs.push('O goleiro precisa ser um jogador de gol.');
+  const l=(t.linha||[]).filter(Boolean);if(l.length<4)errs.push(`Faltam ${4-l.length} jogador(es) de linha.`);
+  if(l.some(id=>!J(id)||J(id).pos!=='LINHA'))errs.push('Só jogadores de linha nas vagas de linha.');
+  if(new Set(teamIds(t)).size!==teamIds(t).length)errs.push('Jogador repetido.');
+  if(teamIds(t).some(id=>J(id)&&J(id).ativo===false))errs.push('Tem jogador inativo no time.');
+  if(!t.cap||!teamIds(t).includes(t.cap))errs.push('Escolha o capitão (pontua em dobro).');
+  return errs;
+}
+const sameTeam=(a,b)=>JSON.stringify(a&&{g:a.gol,l:a.linha,c:a.cap})===JSON.stringify(b&&{g:b.gol,l:b.linha,c:b.cap});
+
+/* ===================== AÇÕES DO PARTICIPANTE ===================== */
+function ensureDraft(){if(!ME)return;if(!draft){const t=S.times[ME.uid];draft=t?{gol:t.gol||null,linha:(t.linha||[null,null,null,null]).slice(0,4),cap:t.cap||null}:{gol:null,linha:[null,null,null,null],cap:null};while(draft.linha.length<4)draft.linha.push(null);}}
+function slotOf(pid){if(draft.gol===pid)return 'g';const i=draft.linha.indexOf(pid);return i>=0?i:null;}
+function escalar(pid){
+  if(!ME)return toast('Entre com o Google pra montar seu time.');if(!aberto())return toast('Mercado fechado.');
+  ensureDraft();const p=J(pid);if(!p)return;
+  if(slotOf(pid)!=null){tirar(slotOf(pid));return;}
+  if(p.pos==='GOL'){draft.gol=pid;}
+  else{let i=ui.pick!=null&&ui.pick!=='g'?ui.pick:draft.linha.indexOf(null);if(i<0)return toast('Sua linha está cheia. Tire alguém antes.');const out=draft.linha[i];draft.linha[i]=pid;if(draft.cap===out)draft.cap=null;}
+  if(!draft.cap)draft.cap=pid;
+  if(ui.pick!=null){ui.pick=null;ui.tab='time';}
+  render();
+}
+function tirar(s){ensureDraft();const id=s==='g'?draft.gol:draft.linha[s];if(s==='g')draft.gol=null;else draft.linha[s]=null;if(draft.cap===id)draft.cap=null;ui.sel=null;render();}
+function capitao(s){ensureDraft();draft.cap=s==='g'?draft.gol:draft.linha[s];ui.sel=null;render();}
+function tapSlot(s){
+  if(!aberto())return;ensureDraft();const id=s==='g'?draft.gol:draft.linha[s];
+  if(!id){ui.pick=s;ui.filtro=s==='g'?'GOL':'LINHA';ui.tab='mercado';render();return;}
+  ui.sel=ui.sel===s?null:s;render();
+}
+async function salvar(){
+  ensureDraft();const errs=validTeam(draft);if(errs.length)return toast(errs[0]);
+  if(teamCost(draft)>budgetOf(ME.uid)+1e-9)return toast('Passou do seu orçamento.');
+  try{await api.set(`times/${ME.uid}`,{gol:draft.gol,linha:draft.linha,cap:draft.cap,ts:Date.now()});toast('Time salvo!');}catch(e){showErr(e);}
+}
+async function saveNick(){const v=($('nick').value||'').trim().slice(0,20);if(!v)return toast('Escreva um apelido.');
+  try{await api.set(`usuarios/${ME.uid}`,{nome:v});ui.nick=false;toast('Apelido salvo');}catch(e){showErr(e);}}
+
+/* ===================== AÇÕES DO ADMIN ===================== */
+function armed(k){if(ui.arm===k){ui.arm=null;return true;}ui.arm=k;toast('Toque de novo pra confirmar');setTimeout(()=>{if(ui.arm===k){ui.arm=null;render();}},3500);render();return false;}
+async function seed(){
+  const upd={'meta':{rodada:1,status:'aberto',orc:ORC_PADRAO,criado:Date.now()}};
+  SEED.forEach(([nome,pos,ano],i)=>{upd['jogadores/j'+String(i+1).padStart(2,'0')]={nome,pos,ano,preco:PRECO.base,ativo:true};});
+  try{await api.update(upd);toast('Dados criados. Rodada 1 aberta!');}catch(e){showErr(e);}
+}
+async function setStatus(st){try{await api.set('meta/status',st);toast(st==='aberto'?'Mercado aberto':'Mercado fechado. Pode lançar os jogos.');}catch(e){showErr(e);}}
+async function encerrar(){
+  if(!armed('enc'))return;
+  const r=R(),{pp,jc}=roundPts(r),played=Object.keys(pp),avg=played.length?played.reduce((a,k)=>a+pp[k],0)/played.length:0,upd={};
+  const p1s={};
+  for(const pid in S.jog){const j=S.jog[pid],p0=j.preco??PRECO.base;
+    const p1=pp[pid]!=null?clamp(r1(p0+(pp[pid]-avg)*PRECO.k),PRECO.min,PRECO.max):Math.max(PRECO.min,r1(p0-PRECO.naoJogou));
+    p1s[pid]=[p0,p1];upd[`rodadas/${rKey(r)}/jog/${pid}`]={pts:pp[pid]||0,j:jc[pid]||0,p0,p1};upd[`jogadores/${pid}/preco`]=p1;}
+  for(const uid in S.times){const t=S.times[uid];if(!t||!t.gol)continue;const pts=teamPts(t,pp),prev=S.pontos[uid]||{};
+    const delta=teamIds(t).reduce((a,id)=>a+(p1s[id]?p1s[id][1]-p1s[id][0]:0),0);
+    upd[`rodadas/${rKey(r)}/times/${uid}`]={gol:t.gol,linha:t.linha,cap:t.cap,pts};
+    upd[`pontos/${uid}/${rKey(r)}`]=pts;upd[`pontos/${uid}/total`]=(prev.total||0)+pts;upd[`pontos/${uid}/cart`]=r1((prev.cart!=null?prev.cart:orc())+delta);}
+  upd[`rodadas/${rKey(r)}/fim`]=Date.now();upd['meta/rodada']=r+1;upd['meta/status']='aberto';
+  try{await api.update(upd);toast(`Rodada ${r} encerrada! Mercado da rodada ${r+1} aberto.`);}catch(e){showErr(e);}
+}
+/* formulário de jogo */
+function newForm(){return {id:null,data:today(),a:{},b:{},pa:0,pb:0,gols:{},ga:'',gb:'',craque:''};}
+function fSide(f,pid){return f.a[pid]?'a':f.b[pid]?'b':null;}
+function fAutoGK(f,side){const ids=Object.keys(f[side]);const k=side==='a'?'ga':'gb';if(!f[k]||!f[side][f[k]]){const gk=ids.find(id=>J(id)&&J(id).pos==='GOL');f[k]=gk||'';}}
+function fChip(pid){const f=ui.form,s=fSide(f,pid);
+  if(s==='a'){delete f.a[pid];f.b[pid]=true;}else if(s==='b'){delete f.b[pid];delete f.gols[pid];if(f.craque===pid)f.craque='';}else f.a[pid]=true;
+  if(f.ga&&!f.a[f.ga])f.ga='';if(f.gb&&!f.b[f.gb])f.gb='';fAutoGK(f,'a');fAutoGK(f,'b');fFix(f);render();}
+function fSum(f,side){return Object.keys(f[side]).reduce((a,id)=>a+(f.gols[id]||0),0);}
+function fFix(f){f.pa=Math.max(f.pa,fSum(f,'a'));f.pb=Math.max(f.pb,fSum(f,'b'));}
+function fGol(pid,d){const f=ui.form;f.gols[pid]=Math.max(0,(f.gols[pid]||0)+d);if(!f.gols[pid])delete f.gols[pid];fFix(f);render();}
+function fPlac(side,d){const f=ui.form,k=side==='a'?'pa':'pb';f[k]=Math.max(fSum(f,side),f[k]+d);render();}
+function fSet(k,v){ui.form[k]=v;render();}
+async function fSave(){
+  const f=ui.form;if(!Object.keys(f.a).length||!Object.keys(f.b).length)return toast('Coloque jogadores nos dois times.');
+  if(aberto())return toast('Feche o mercado antes de lançar jogos.');
+  const id=f.id||api.pushKey('jogos'),old=f.id&&S.jogos[f.id];
+  const g={r:old?old.r:R(),data:f.data||today(),a:f.a,b:f.b,pa:f.pa,pb:f.pb,ga:f.ga||'',gb:f.gb||'',craque:f.craque||'',ts:old?old.ts:Date.now()};
+  const gl={};for(const k in f.gols)if(f.gols[k]>0)gl[k]=f.gols[k];if(Object.keys(gl).length)g.gols=gl;
+  try{await api.set(`jogos/${id}`,g);ui.form=null;toast(f.id?'Jogo atualizado':'Jogo lançado!');render();}catch(e){showErr(e);}
+}
+function fEdit(id){const g=S.jogos[id];ui.form={id,data:g.data,a:Object.assign({},g.a),b:Object.assign({},g.b),pa:g.pa,pb:g.pb,gols:Object.assign({},g.gols||{}),ga:g.ga||'',gb:g.gb||'',craque:g.craque||''};ui.tab='admin';render();window.scrollTo(0,0);}
+async function fDel(id){if(!armed('del'+id))return;try{await api.set(`jogos/${id}`,null);toast('Jogo apagado');}catch(e){showErr(e);}}
+async function pSet(pid,k,v){
+  const p=S.jog[pid];if(!p)return;let val=v;
+  if(k==='nome'){val=String(v).trim().slice(0,22);if(!val)return render();}
+  if(k==='preco'){val=clamp(r1(parseFloat(String(v).replace(',','.'))||PRECO.base),1,50);}
+  try{await api.set(`jogadores/${pid}/${k}`,val);}catch(e){showErr(e);}
+}
+async function pAdd(){const n=ui.newP;const nome=(n.nome||'').trim().slice(0,22);if(!nome)return toast('Escreva o nome.');
+  if(Object.values(S.jog).some(p=>p.nome.toLowerCase()===nome.toLowerCase()))return toast('Já existe alguém com esse nome. Use uma inicial.');
+  try{await api.set(`jogadores/${api.pushKey('jogadores')}`,{nome,pos:n.pos,ano:n.ano,preco:PRECO.base,ativo:true});ui.newP={nome:'',pos:'LINHA',ano:n.ano};toast(`${nome} adicionado`);}catch(e){showErr(e);}}
+async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await api.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
+
+/* ===================== TELAS ===================== */
+const ICON={
+  time:'<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 12h16"/><circle cx="12" cy="12" r="2.5"/></svg>',
+  mercado:'<svg viewBox="0 0 24 24"><path d="M5 8h14l-1.2 11H6.2z"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>',
+  ranking:'<svg viewBox="0 0 24 24"><path d="M8 21V11M12 21V5M16 21v-7"/></svg>',
+  jogos:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5l3.5 2.5-1.3 4h-4.4L8.5 10z"/></svg>',
+  admin:'<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9.5 12l2 2 3.5-4"/></svg>'
+};
+const LOGO='<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="#fff"/><path d="M16 9.5l4.6 3.3-1.8 5.4h-5.6l-1.8-5.4z" fill="#111a2c"/><path d="M16 5v4.5M26.5 12.6l-5.9 0.2M23 25l-3.2-6.8M9 25l3.2-6.8M5.5 12.6l5.9.2" stroke="#111a2c" stroke-width="1.6"/></svg>';
+
+let rq=0;function render(){if(rq)return;rq=requestAnimationFrame(()=>{rq=0;draw();});}
+function draw(){
+  const tabs=[['time','Meu time'],['mercado','Mercado'],['ranking','Ranking'],['jogos','Jogos']];if(isAdmin())tabs.push(['admin','Admin']);
+  if(ui.tab==='admin'&&!isAdmin())ui.tab='time';
+  $('nav').hidden=false;$('navin').innerHTML=tabs.map(([k,n])=>`<button class="${ui.tab===k?'on':''}" onclick="go('${k}')">${ICON[k]}<span>${n}</span></button>`).join('');
+  const loaded=['meta','jogadores','jogos','times','usuarios','pontos','rodadas'].every(k=>S.ready[k]);
+  if(ME&&S.ready.usuarios&&!S.users[ME.uid]&&!ui.creatingUser){ui.creatingUser=true;api.set(`usuarios/${ME.uid}`,{nome:(ME.name||'Técnico').split(' ')[0].slice(0,20)}).catch(()=>{}).finally(()=>{ui.creatingUser=false;});}
+  if(ME&&aberto())ensureDraft();
+  const body=!loaded?'<div class="empty">Carregando…</div>':({time:vTime,mercado:vMercado,ranking:vRanking,jogos:vJogos,admin:vAdmin}[ui.tab])();
+  $('app').innerHTML=header()+(DEMO?demoBar():'')+body;
+}
+window.go=k=>{ui.tab=k;ui.sel=null;if(k!=='mercado')ui.pick=null;render();window.scrollTo(0,0);};
+function header(){
+  const st=!S.meta?'<span class="pill">Aguardando o admin</span>':aberto()?`<span class="pill open">● Rodada ${R()} · mercado aberto</span>`:`<span class="pill closed">● Rodada ${R()} · mercado fechado</span>`;
+  const me=ME?`<button class="av" onclick="go('time')" aria-label="Minha conta">${esc(((S.users[ME.uid]||{}).nome||ME.name||'?').slice(0,1).toUpperCase())}</button>`:'';
+  return `<div class="top"><div class="logo">${LOGO}</div><div class="grow" style="min-width:0;flex:1"><h1>${esc(CONFIG.nome)}</h1><div class="sub">${st}</div></div>${me}</div>`;
+}
+function demoBar(){return `<div class="demo stack" style="gap:6px;margin-bottom:12px"><div><b>Modo demonstração.</b> Os dados ficam só neste aparelho, sem Firebase. No GitHub Pages o app usa o banco de verdade.</div>
+  <div class="row" style="flex-wrap:wrap;gap:6px"><span class="small">Entrar como:</span><button class="btn sm ghost" onclick="demoAs('admin')">Admin</button><button class="btn sm ghost" onclick="demoAs('ana')">Ana</button><button class="btn sm ghost" onclick="demoAs('beto')">Beto</button><button class="btn sm ghost" onclick="demoReset()">Zerar</button></div></div>`;}
+window.demoAs=k=>{draft=null;api.login(k);};
+window.demoReset=()=>{if(armed('reset')){api.reset();draft=null;}};
+
+function loginCard(msg){
+  return `<div class="card"><h2>Entre pra jogar</h2><div class="mut">${msg||'Monte seu time com 5 colegas do recreio, escolha o capitão e dispute o ranking.'}</div>
+    <button class="btn" onclick="doLogin()">Entrar com Google</button>
+    <div class="tiny mut">Se o login não abrir, copie o link e abra direto no Chrome ou no Safari. Dentro do Instagram ou do TikTok o Google bloqueia.</div></div>`;
+}
+window.doLogin=async()=>{try{await api.login();}catch(e){showErr(e);}};
+window.doLogout=async()=>{draft=null;await api.logout();toast('Você saiu');};
+
+/* ---- Meu time ---- */
+function vTime(){
+  if(!S.meta)return `<div class="stack">${!ME?loginCard():''}<div class="card"><h3>O fantasy ainda não começou</h3><div class="mut">O admin precisa criar os jogadores e abrir a primeira rodada.</div>${isAdmin()?'<button class="btn" onclick="go(\'admin\')">Ir pro Admin</button>':''}</div></div>`;
+  if(!ME)return `<div class="stack">${loginCard()}${rulesCard()}</div>`;
+  const nome=(S.users[ME.uid]||{}).nome||'';
+  const nick=ui.nick?`<div class="row"><input id="nick" class="inp grow" maxlength="20" value="${esc(nome)}" aria-label="Apelido"><button class="btn sm" onclick="saveNickW()">Salvar</button></div>`
+    :`<div class="row"><span class="grow small mut">Você aparece no ranking como <b style="color:var(--ink)">${esc(nome)}</b></span><button class="btn sm ghost" onclick="ui_nick()">Editar</button><button class="btn sm ghost" onclick="doLogout()">Sair</button></div>`;
+  const open=aberto(),saved=S.times[ME.uid],t=open?draft:saved,{pp}=roundPts(R());
+  const ids=teamIds(t),cost=teamCost(t),bud=budgetOf(ME.uid),over=cost>bud+1e-9,changed=open&&!sameTeam(draft,saved);
+  const slot=(s,cls)=>{const id=s==='g'?t&&t.gol:t&&t.linha&&t.linha[s],p=id&&J(id);
+    return `<button class="slot ${cls} ${p?'full':''} ${ui.sel===s?'sel':''}" onclick="tapSlotW('${s}')" aria-label="${s==='g'?'Goleiro':'Linha'}">
+      ${p&&t.cap===id?'<span class="cap">C</span>':''}${p&&!open&&pp[id]!=null?`<span class="pts">${pp[id]*(t.cap===id?2:1)}</span>`:''}
+      <span class="sh">${p?esc(p.nome.slice(0,2).toUpperCase()):(open?'+':'–')}</span><span class="nm">${p?esc(p.nome):s==='g'?'Goleiro':'Linha'}</span>${p?`<span class="pr">${cs(p.preco)}</span>`:''}</button>`;};
+  const selBar=open&&ui.sel!=null?(()=>{const s=ui.sel;return `<div class="row" style="flex-wrap:wrap"><span class="grow small"><b>${esc(pName(s==='g'?draft.gol:draft.linha[s]))}</b></span>
+    <button class="btn sm" onclick="capW('${s}')">Capitão</button><button class="btn sm ghost" onclick="trocaW('${s}')">Trocar</button><button class="btn sm ghost" onclick="tirarW('${s}')">Tirar</button></div>`;})():'';
+  const errs=open?validTeam(draft):[];
+  const last=roundsDone().slice(-1)[0],lastPts=last&&S.pontos[ME.uid]?S.pontos[ME.uid][rKey(last)]:null;
+  const info=open?`<div class="row"><span class="grow small">Custo <b class="num">${cs(cost)}</b> de <b class="num">${cs(bud)}</b></span><span class="small num ${over?'warn':'okc'}">${over?'Faltam '+cs(cost-bud):'Sobram '+cs(bud-cost)}</span></div>
+      <div class="budget ${over?'over':''}"><i style="width:${Math.min(100,cost/bud*100)}%"></i></div>
+      ${errs.length?`<div class="small warn">${esc(errs[0])}</div>`:''}
+      ${saved&&!changed?'<div class="small okc">Time salvo. Ele continua valendo nas próximas rodadas até você mudar.</div>':changed?'<div class="small" style="color:var(--gold);font-weight:700">Alterações não salvas</div>':''}
+      <button class="btn" onclick="salvarW()" ${errs.length||over||!changed?'disabled':''}>Salvar time</button>`
+    :saved?`<div class="row"><span class="grow">Parcial da rodada ${R()}</span><b class="num" style="font-family:var(--disp);font-size:24px">${teamPts(saved,pp)} pts</b></div><div class="small mut">Mercado fechado: o time está travado até o admin encerrar a rodada.</div>`
+    :`<div class="small warn">Você não salvou um time antes do mercado fechar. Na próxima rodada você entra.</div>`;
+  return `<div class="stack">
+    <div class="card">${nick}</div>
+    <div class="card"><div class="row"><h3 class="grow">Meu time</h3>${lastPts!=null?`<span class="tag">Rodada ${last}: ${lastPts} pts</span>`:''}<span class="tag">Total ${(S.pontos[ME.uid]||{}).total||0}</span></div>
+      <div class="court"><span class="area t"></span><span class="area b"></span><span class="circ"></span>${slot(0,'s0')}${slot(1,'s1')}${slot(2,'s2')}${slot(3,'s3')}${slot('g','sg')}</div>
+      ${open?`<div class="small mut" style="text-align:center">${ui.sel!=null?'':'Toque numa vaga vazia pra escolher no mercado. Toque num jogador pra trocar, tirar ou fazer capitão.'}</div>`:''}
+      ${selBar}${info}</div>
+    ${rulesCard()}</div>`;
+}
+window.ui_nick=()=>{ui.nick=true;render();setTimeout(()=>{const e=$('nick');if(e)e.focus();},50);};
+window.saveNickW=()=>saveNick();
+window.tapSlotW=s=>tapSlot(s==='g'?'g':+s);
+window.capW=s=>capitao(s==='g'?'g':+s);
+window.tirarW=s=>tirar(s==='g'?'g':+s);
+window.trocaW=s=>{const k=s==='g'?'g':+s;ui.sel=null;ui.pick=k;ui.filtro=k==='g'?'GOL':'LINHA';ui.tab='mercado';render();};
+window.salvarW=()=>salvar();
+function rulesCard(){
+  return `<div class="card"><div class="lbl">Como funciona</div>
+    <div class="small">Monte <b>1 goleiro + 4 de linha</b> dentro do orçamento e escolha o <b>capitão</b>, que pontua em dobro. O mercado fecha antes dos jogos; quando a rodada acaba, os preços sobem pra quem pontuou bem e caem pra quem foi mal.</div>
+    <div class="small"><b>Pontos por jogo:</b> jogou +${PTS.jogou} · time venceu +${PTS.vitoria} · gol +${PTS.gol} · goleiro do time vencedor +${PTS.goleiroVitoria} · craque do jogo +${PTS.craque}</div></div>`;
+}
+
+/* ---- Mercado ---- */
+function vMercado(){
+  if(!S.meta)return `<div class="card"><div class="mut">O mercado abre quando o admin criar a primeira rodada.</div></div>`;
+  const open=aberto(),mine=ME&&open&&draft?new Set(teamIds(draft)):new Set(),{pp}=roundPts(R());
+  let ps=Object.entries(S.jog).filter(([,p])=>p.ativo!==false).map(([id,p])=>({id,...p,st:pStats(id)}));
+  if(ui.filtro!=='todos')ps=ps.filter(p=>p.pos===ui.filtro);
+  if(ui.ano!=='todos')ps=ps.filter(p=>p.ano===ui.ano);
+  const sorts={preco:(a,b)=>(b.preco||0)-(a.preco||0),media:(a,b)=>(b.st.media??-1)-(a.st.media??-1),pts:(a,b)=>b.st.pts-a.st.pts,nome:(a,b)=>a.nome.localeCompare(b.nome)};
+  ps.sort(sorts[ui.sort]||sorts.preco);
+  const pickBar=ui.pick!=null?`<div class="card" style="border-color:var(--acc)"><div class="row"><span class="grow"><b>Escolhendo ${ui.pick==='g'?'o goleiro':'um jogador de linha'}</b></span><button class="btn sm ghost" onclick="cancelPick()">Cancelar</button></div></div>`:'';
+  const saldo=ME&&open&&draft?`<div class="small mut">Seu saldo: <b class="num" style="color:var(--ink)">${cs(budgetOf(ME.uid)-teamCost(draft))}</b></div>`:'';
+  const rows=ps.map(p=>{const inT=mine.has(p.id),v=p.st.vari;
+    const act=!ME?'':open?`<button class="btn sm ${inT?'ghost':''}" onclick="escW('${p.id}')">${inT?'Tirar':'Escalar'}</button>`:'';
+    return `<div class="pl ${inT?'me':''}"><div style="min-width:0"><div class="nm">${esc(p.nome)} <span class="tag">${p.pos==='GOL'?'GOL':'LINHA'}</span></div>
+      <div class="sub"><span>${esc(p.ano||'')}</span><span>${p.st.j} jogo${p.st.j===1?'':'s'}</span><span>média ${p.st.media==null?'–':n1(p.st.media)}</span>${!open&&pp[p.id]!=null?`<span class="okc">${pp[p.id]} pts hoje</span>`:''}</div></div>
+      <div class="row" style="gap:8px"><div><div class="price num">${cs(p.preco)}</div>${v?`<div class="tiny num ${v>0?'up':'dn'}" style="text-align:right">${v>0?'▲':'▼'} ${n1(Math.abs(v))}</div>`:''}</div>${act}</div></div>`;}).join('');
+  return `<div class="stack">${pickBar}
+    <div class="card">
+      <div class="row"><h3 class="grow">Mercado</h3>${open?'<span class="pill open">aberto</span>':'<span class="pill closed">fechado</span>'}</div>${saldo}
+      <div class="seg">${[['todos','Todos'],['GOL','Goleiros'],['LINHA','Linha']].map(([k,n])=>`<button class="${ui.filtro===k?'on':''}" onclick="setF('filtro','${k}')">${n}</button>`).join('')}</div>
+      <div class="row"><select class="inp" id="fano" onchange="setF('ano',this.value)"><option value="todos">Todos os anos</option>${ANOS.map(a=>`<option ${ui.ano===a?'selected':''}>${a}</option>`).join('')}</select>
+        <select class="inp" id="fsort" onchange="setF('sort',this.value)">${[['preco','Maior preço'],['media','Melhor média'],['pts','Mais pontos'],['nome','Nome']].map(([k,n])=>`<option value="${k}" ${ui.sort===k?'selected':''}>${n}</option>`).join('')}</select></div>
+      ${!ME?'<div class="small mut">Entre com o Google (aba Meu time) pra escalar.</div>':''}
+      <div class="plist">${rows||'<div class="empty">Ninguém nesse filtro.</div>'}</div></div></div>`;
+}
+window.setF=(k,v)=>{ui[k]=v;render();};
+window.cancelPick=()=>{ui.pick=null;ui.tab='time';render();};
+window.escW=id=>escalar(id);
+
+/* ---- Ranking ---- */
+function vRanking(){
+  const open=aberto(),r=R(),{pp}=roundPts(r),last=roundsDone().slice(-1)[0];
+  const users=Object.entries(S.users).map(([uid,u])=>({uid,nome:u.nome||'?',total:(S.pontos[uid]||{}).total||0,
+    parc:!open&&S.times[uid]?teamPts(S.times[uid],pp):null,lastP:last&&S.pontos[uid]?S.pontos[uid][rKey(last)]:null,team:S.times[uid]}));
+  let list,val,canSee;
+  if(ui.rk==='geral'){list=users.sort((a,b)=>b.total-a.total||a.nome.localeCompare(b.nome));val=u=>u.total+(u.parc?`<div class="tiny okc">+${u.parc} ao vivo</div>`:'');canSee=u=>!open||(ME&&u.uid===ME.uid);}
+  else if(ui.rk==='atual'){list=users.filter(u=>u.parc!=null).sort((a,b)=>b.parc-a.parc);val=u=>u.parc;canSee=()=>true;}
+  else{list=users.filter(u=>u.lastP!=null).sort((a,b)=>b.lastP-a.lastP);val=u=>u.lastP;canSee=()=>true;}
+  const teamOf=u=>{if(ui.rk==='ultima'){return S.rodadas[rKey(last)]&&S.rodadas[rKey(last)].times&&S.rodadas[rKey(last)].times[u.uid];}return u.team;};
+  const ppOf=ui.rk==='ultima'&&last?Object.fromEntries(Object.entries((S.rodadas[rKey(last)]||{}).jog||{}).map(([k,x])=>[k,x.pts])):pp;
+  const rows=list.map((u,i)=>{const t=teamOf(u),showT=ui.open===u.uid&&t&&canSee(u);
+    return `<button class="rk ${ME&&u.uid===ME.uid?'me':''}" onclick="rkOpen('${u.uid}')"><span class="pos">${i+1}</span><span class="av">${esc(u.nome.slice(0,1).toUpperCase())}</span>
+      <span style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.nome)}</b>${t?'':'<span class="tiny mut">sem time</span>'}</span><span class="pt num">${val(u)}</span></button>
+      ${showT?`<div class="tm">${teamIds(t).map(id=>`<span class="tag">${t.cap===id?'© ':''}${esc(pName(id))}${ppOf[id]!=null?' · '+ppOf[id]*(t.cap===id?2:1):''}</span>`).join('')}</div>`:''}
+      ${ui.open===u.uid&&t&&!canSee(u)?'<div class="tiny mut" style="padding:2px 4px">O time dos outros aparece quando o mercado fecha.</div>':''}`;}).join('');
+  const empty=ui.rk==='atual'?(open?'A rodada ainda não começou: o mercado está aberto.':'Ninguém pontuou ainda nesta rodada.'):ui.rk==='ultima'?'Nenhuma rodada encerrada ainda.':'Ninguém entrou ainda.';
+  return `<div class="stack"><div class="card"><h3>Ranking</h3>
+    <div class="seg">${[['geral','Geral'],['atual',`Rodada ${r}`],['ultima',last?`Rodada ${last}`:'Última']].map(([k,n])=>`<button class="${ui.rk===k?'on':''}" onclick="setF('rk','${k}')">${n}</button>`).join('')}</div>
+    <div class="plist">${rows||`<div class="empty">${empty}</div>`}</div>
+    <div class="tiny mut">Toque num participante pra ver o time dele.</div></div></div>`;
+}
+window.rkOpen=uid=>{ui.open=ui.open===uid?null:uid;render();};
+
+/* ---- Jogos ---- */
+function gameCard(id,g,admin){
+  const gp=gamePts(g),win=g.pa>g.pb?'a':g.pb>g.pa?'b':null;
+  const side=s=>Object.keys(g[s]||{}).sort((x,y)=>((g.gols||{})[y]||0)-((g.gols||{})[x]||0)||pName(x).localeCompare(pName(y))).map(pid=>{const gl=(g.gols||{})[pid]||0,gk=(s==='a'?g.ga:g.gb)===pid;
+    return `<div class="gl"><span>${esc(pName(pid))}${gk?' 🧤':''}${gl?' '+'⚽'.repeat(Math.min(gl,5))+(gl>5?'×'+gl:''):''}${g.craque===pid?' ⭐':''}</span><span class="p">+${gp[pid]||0}</span></div>`;}).join('');
+  const semAutor=s=>{const n=(s==='a'?g.pa:g.pb)-Object.keys(g[s]||{}).reduce((a,p)=>a+((g.gols||{})[p]||0),0);return n>0?`<div class="tiny mut">${n} gol${n>1?'s':''} sem autor</div>`:'';};
+  return `<div class="card game"><div class="row"><span class="lbl grow">${dmy(g.data)}${g.craque?` · craque: ${esc(pName(g.craque))}`:''}</span>
+      ${admin?`<button class="btn sm ghost" onclick="fEditW('${id}')">Editar</button><button class="btn sm ghost" onclick="fDelW('${id}')">${ui.arm==='del'+id?'Confirmar':'Apagar'}</button>`:''}</div>
+    <div class="score"><span class="ta lbl" style="color:${win==='a'?'var(--good)':'var(--mut)'}">Time A</span><span class="num"><b>${g.pa}</b> × <b>${g.pb}</b></span><span class="lbl" style="color:${win==='b'?'var(--good)':'var(--mut)'}">Time B</span></div>
+    <div class="cols"><div class="side">${side('a')}${semAutor('a')}</div><div class="side">${side('b')}${semAutor('b')}</div></div></div>`;
+}
+window.fEditW=id=>fEdit(id);window.fDelW=id=>fDel(id);
+function vJogos(){
+  if(!S.meta)return '<div class="card"><div class="mut">Ainda não tem jogos.</div></div>';
+  const r=R(),cur=gamesOf(r),{pp}=roundPts(r);
+  const craques=Object.entries(pp).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const past=roundsDone().reverse().map(rr=>{const gs=gamesOf(rr);return `<details class="card"><summary>Rodada ${rr} · ${gs.length} jogo${gs.length===1?'':'s'}</summary><div class="stack" style="margin-top:10px">${gs.map(([id,g])=>gameCard(id,g,false)).join('')||'<div class="empty">Sem jogos.</div>'}</div></details>`;}).join('');
+  return `<div class="stack">
+    <div class="card"><div class="row"><h3 class="grow">Rodada ${r}</h3><span class="tag">${cur.length} jogo${cur.length===1?'':'s'}</span></div>
+      ${craques.length?`<div class="small">Destaques: ${craques.map(([id,v])=>`<b>${esc(pName(id))}</b> ${v}`).join(' · ')}</div>`:`<div class="small mut">${aberto()?'Mercado aberto. Os jogos aparecem aqui depois que o admin lançar.':'Nenhum jogo lançado ainda nesta rodada.'}</div>`}
+      <div class="tiny mut">Achou erro na súmula? Fala com o admin que ele corrige antes de encerrar a rodada.</div></div>
+    ${cur.map(([id,g])=>gameCard(id,g,isAdmin()&&!aberto())).join('')}
+    ${past?'<div class="lbl" style="padding:4px 2px">Rodadas anteriores</div>'+past:''}</div>`;
+}
+
+/* ---- Admin ---- */
+function vAdmin(){
+  if(!isAdmin())return '';
+  if(!S.meta)return `<div class="stack"><div class="card"><h2>Começar o fantasy</h2><div class="mut">Isso cria os ${SEED.length} jogadores da lista (todos a ${cs(PRECO.base)}), o orçamento de ${cs(ORC_PADRAO)} e abre a rodada 1.</div>
+    <button class="btn" onclick="seedW()">Criar dados iniciais</button></div></div>`;
+  const r=R(),open=aberto(),cur=gamesOf(r),withTeam=Object.keys(S.times).filter(uid=>S.times[uid]&&S.times[uid].gol).length;
+  const rod=`<div class="card"><div class="row"><h3 class="grow">Rodada ${r}</h3>${open?'<span class="pill open">mercado aberto</span>':'<span class="pill closed">mercado fechado</span>'}</div>
+    <div class="small mut">${Object.keys(S.users).length} participante(s) · ${withTeam} com time salvo · ${cur.length} jogo(s) lançado(s)</div>
+    ${open?`<div class="small">Feche o mercado <b>antes do recreio</b>. Depois disso ninguém mexe no time e você pode lançar os jogos.</div><button class="btn" onclick="setStatusW('fechado')">Fechar mercado</button>`
+      :`<div class="small">Lance os jogos que rolaram. Quando quiser fechar a rodada (pode ser depois de vários dias), encerre: os pontos e os preços são calculados e o mercado reabre.</div>
+       <button class="btn" onclick="encW()">${ui.arm==='enc'?'Toque de novo pra encerrar':`Encerrar rodada ${r}`}</button>
+       <button class="btn ghost" onclick="setStatusW('aberto')">Reabrir mercado (sem encerrar)</button>`}</div>`;
+  const form=open?'':formCard();
+  const jogos=cur.length?`<div class="lbl" style="padding:4px 2px">Jogos desta rodada</div>${cur.map(([id,g])=>gameCard(id,g,true)).join('')}`:'';
+  return `<div class="stack">${rod}${form}${jogos}${playersCard()}${configCard()}</div>`;
+}
+window.seedW=()=>seed();window.setStatusW=s=>setStatus(s);window.encW=()=>encerrar();
+function formCard(){
+  if(!ui.form)return `<div class="card"><button class="btn" onclick="fNew()">+ Lançar jogo</button></div>`;
+  const f=ui.form,act=Object.entries(S.jog).filter(([id,p])=>p.ativo!==false||f.a[id]||f.b[id]).sort((a,b)=>(b[1].ano||'').localeCompare(a[1].ano||'')||a[1].nome.localeCompare(b[1].nome));
+  const byAno={};act.forEach(([id,p])=>{(byAno[p.ano||'Outro']=byAno[p.ano||'Outro']||[]).push([id,p]);});
+  const chips=Object.keys(byAno).map(a=>`<div class="lbl" style="margin-top:4px">${esc(a)}</div><div class="chips">${byAno[a].map(([id,p])=>{const s=fSide(f,id);return `<button class="chip ${s||''}" onclick="fChipW('${id}')">${s?s.toUpperCase()+' · ':''}${esc(p.nome)}${p.pos==='GOL'?' 🧤':''}</button>`;}).join('')}</div>`).join('');
+  const sideBox=s=>{const ids=Object.keys(f[s]);const k=s==='a'?'ga':'gb';
+    return `<div class="card" style="background:var(--card2);gap:8px"><div class="row"><b class="grow">Time ${s.toUpperCase()}</b>
+      <div class="step"><button onclick="fPlacW('${s}',-1)" aria-label="Menos">−</button><b class="num">${s==='a'?f.pa:f.pb}</b><button onclick="fPlacW('${s}',1)" aria-label="Mais">+</button></div></div>
+      ${ids.length?ids.map(id=>`<div class="row"><span class="grow small">${esc(pName(id))}</span><span class="tiny mut">gols</span><div class="step"><button onclick="fGolW('${id}',-1)">−</button><b class="num">${f.gols[id]||0}</b><button onclick="fGolW('${id}',1)">+</button></div></div>`).join('')
+        :'<div class="small mut">Toque nos nomes acima.</div>'}
+      ${ids.length?`<label class="small">Goleiro<select class="inp" id="gk-${s}" onchange="fSetW('${k}',this.value)"><option value="">—</option>${ids.map(id=>`<option value="${id}" ${f[k]===id?'selected':''}>${esc(pName(id))}</option>`).join('')}</select></label>`:''}
+      ${(()=>{const n=(s==='a'?f.pa:f.pb)-fSum(f,s);return n>0?`<div class="tiny mut">${n} gol${n>1?'s':''} sem autor (tudo bem se não lembrar)</div>`:'';})()}</div>`;};
+  const all=[...Object.keys(f.a),...Object.keys(f.b)];
+  return `<div class="card"><div class="row"><h3 class="grow">${f.id?'Editar jogo':'Lançar jogo'}</h3><button class="btn sm ghost" onclick="fCancel()">Cancelar</button></div>
+    <label class="small">Data<input class="inp" type="date" id="fdata" value="${esc(f.data)}" onchange="fSetW('data',this.value)"></label>
+    <div class="small mut">Toque no nome: 1 vez = Time A, 2 vezes = Time B, 3 vezes = tira.</div>
+    ${chips}
+    <div class="cols">${sideBox('a')}${sideBox('b')}</div>
+    ${all.length?`<label class="small">Craque do jogo<select class="inp" id="fcraque" onchange="fSetW('craque',this.value)"><option value="">—</option>${all.map(id=>`<option value="${id}" ${f.craque===id?'selected':''}>${esc(pName(id))}</option>`).join('')}</select></label>`:''}
+    <button class="btn" onclick="fSaveW()">${f.id?'Salvar alterações':'Salvar jogo'}</button></div>`;
+}
+window.fNew=()=>{ui.form=newForm();render();};window.fCancel=()=>{ui.form=null;render();};
+window.fChipW=id=>fChip(id);window.fGolW=(id,d)=>fGol(id,d);window.fPlacW=(s,d)=>fPlac(s,d);window.fSetW=(k,v)=>fSet(k,v);window.fSaveW=()=>fSave();
+function playersCard(){
+  const ps=Object.entries(S.jog).sort((a,b)=>(b[1].ano||'').localeCompare(a[1].ano||'')||a[1].nome.localeCompare(b[1].nome));
+  const n=ui.newP;
+  return `<details class="card"><summary>Jogadores (${ps.filter(([,p])=>p.ativo!==false).length} ativos)</summary>
+    <div class="stack" style="margin-top:10px;gap:0">
+      <div class="small mut" style="padding-bottom:8px">Mude nome, ano e preço inicial. Desativar tira do mercado sem apagar o histórico.</div>
+      ${ps.map(([id,p])=>`<div class="ed"><input class="inp" id="pn-${id}" value="${esc(p.nome)}" onchange="pSetW('${id}','nome',this.value)" aria-label="Nome">
+        <select class="inp" id="pa-${id}" onchange="pSetW('${id}','ano',this.value)">${ANOS.map(a=>`<option ${p.ano===a?'selected':''}>${a}</option>`).join('')}</select>
+        <input class="inp num" id="pp-${id}" inputmode="decimal" value="${n1(p.preco)}" onchange="pSetW('${id}','preco',this.value)" aria-label="Preço">
+        <div class="ctl"><div class="seg" style="flex:1">${['LINHA','GOL'].map(x=>`<button class="${p.pos===x?'on':''}" onclick="pSetW('${id}','pos','${x}')">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div>
+        <button class="btn sm ${p.ativo===false?'':'ghost'}" onclick="pSetW('${id}','ativo',${p.ativo===false})">${p.ativo===false?'Reativar':'Desativar'}</button></div></div>`).join('')}
+      <div class="stack" style="padding-top:12px;border-top:1px solid var(--line);gap:8px"><div class="lbl">Adicionar jogador</div>
+        <input class="inp" id="np-nome" placeholder="Nome (use inicial se repetir)" value="${esc(n.nome)}" oninput="ui_np('nome',this.value)">
+        <div class="row"><select class="inp" id="np-ano" onchange="ui_np('ano',this.value)">${ANOS.map(a=>`<option ${n.ano===a?'selected':''}>${a}</option>`).join('')}</select>
+          <div class="seg" style="flex:1">${['LINHA','GOL'].map(x=>`<button class="${n.pos===x?'on':''}" onclick="ui_np('pos','${x}',1)">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div></div>
+        <button class="btn" onclick="pAddW()">Adicionar</button></div></div></details>`;
+}
+window.pSetW=(id,k,v)=>pSet(id,k,v);window.pAddW=()=>pAdd();window.ui_np=(k,v,r)=>{ui.newP[k]=v;if(r)render();};
+function configCard(){
+  return `<details class="card"><summary>Configurações</summary><div class="stack" style="margin-top:10px">
+    <label class="small">Orçamento inicial de cada participante (C$)<input class="inp num" id="orc" inputmode="numeric" value="${orc()}" onchange="setOrcW(this.value)"></label>
+    <div class="tiny mut">Vale pra quem ainda não terminou uma rodada. Depois disso, o orçamento de cada um sobe ou desce com a valorização do próprio time.</div>
+    <button class="btn ghost" onclick="doLogout()">Sair da conta</button></div></details>`;
+}
+window.setOrcW=v=>setOrc(v);
+
+/* ===================== INÍCIO ===================== */
+try{api=DEMO?mockApi():await fireApi();}
+catch(e){$('app').innerHTML=`<div class="card"><h3>Não deu pra conectar</h3><div class="mut">Confira a internet e recarregue a página.</div></div>`;throw e;}
+const MAP={meta:'meta',jogadores:'jog',jogos:'jogos',times:'times',usuarios:'users',pontos:'pontos',rodadas:'rodadas'};
+api.onAuth(u=>{ME=u;draft=null;ui.sel=null;render();});
+Object.keys(MAP).forEach(k=>api.listen(k,v=>{S[MAP[k]]=k==='meta'?v:(v||{});S.ready[k]=1;
+  if(k==='times'&&ME&&draft&&S.times[ME.uid]&&sameTeam(draft,S.times[ME.uid]))draft=null;render();}));
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
