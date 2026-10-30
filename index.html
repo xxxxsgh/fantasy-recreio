@@ -372,6 +372,13 @@ async function aplicarPrecos(){
 const semAc=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 function precoIni(nm){const k=Object.keys(PRECO_INI).find(x=>semAc(x)===semAc(nm));return k?PRECO_INI[k]:PRECO.base;}
 window.aplicarPrecosW=()=>aplicarPrecos();
+async function reiniciar(){
+  if(semAc(ui.rst||'')!=='reiniciar')return toast('Escreva REINICIAR pra confirmar.');
+  const upd={meta:{rodada:1,status:'aberto',orc:orc(),criado:Date.now()},jogos:null,rodadas:null,pontos:null};
+  for(const uid in (S.times||{}))upd[`times/${uid}`]=null;
+  for(const pid in S.jog)upd[`jogadores/${pid}/preco`]=precoIni(S.jog[pid].nome);
+  try{await api.update(upd);ui.rst='';ui.form=null;toast('Tudo reiniciado. Rodada 1 aberta!');render();}catch(e){showErr(e);}}
+window.reiniciarW=()=>reiniciar();window.rstIn=v=>{ui.rst=v;const b=$('rstb');if(b)b.disabled=semAc(v)!=='reiniciar';};
 async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await api.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
 
 /* ===================== TELAS ===================== */
@@ -600,7 +607,12 @@ function configCard(){
   return `<details class="card"><summary>Configurações</summary><div class="stack" style="margin-top:10px">
     <label class="small">Orçamento inicial de cada participante (C$)<input class="inp num" id="orc" inputmode="numeric" value="${orc()}" onchange="setOrcW(this.value)"></label>
     <div class="tiny mut">Vale pra quem ainda não terminou uma rodada. Depois disso, o orçamento de cada um sobe ou desce com a valorização do próprio time.</div>
-    <button class="btn ghost" onclick="doLogout()">Sair da conta</button></div></details>`;
+    <button class="btn ghost" onclick="doLogout()">Sair da conta</button></div></details>
+  <details class="card"><summary>Reiniciar tudo</summary><div class="stack" style="margin-top:10px">
+    <div class="small">Apaga <b>todos os jogos, rodadas, pontos e times</b> dos participantes, volta os preços pros iniciais (caros 14 · médios 10 · baratos 6) e abre a rodada 1.</div>
+    <div class="tiny mut">Continuam: a lista de jogadores, os apelidos e o orçamento. Não dá pra desfazer.</div>
+    <label class="small">Escreva REINICIAR pra liberar<input class="inp" id="rst" autocomplete="off" value="${esc(ui.rst||'')}" oninput="rstIn(this.value)"></label>
+    <button class="btn" id="rstb" style="background:var(--bad)" ${semAc(ui.rst||'')==='reiniciar'?'':'disabled'} onclick="reiniciarW()">Reiniciar tudo</button></div></details>`;
 }
 window.setOrcW=v=>setOrc(v);
 
