@@ -379,6 +379,12 @@ async function reiniciar(){
   for(const pid in S.jog)upd[`jogadores/${pid}/preco`]=precoIni(S.jog[pid].nome);
   try{await api.update(upd);ui.rst='';ui.form=null;toast('Tudo reiniciado. Rodada 1 aberta!');render();}catch(e){showErr(e);}}
 window.reiniciarW=()=>reiniciar();window.rstIn=v=>{ui.rst=v;const b=$('rstb');if(b)b.disabled=semAc(v)!=='reiniciar';};
+async function delUser(uid){
+  if(!armed('du'+uid))return;const nm=(S.users[uid]||{}).nome||'?';
+  const upd={[`usuarios/${uid}`]:null,[`times/${uid}`]:null,[`pontos/${uid}`]:null};
+  for(const rk in (S.rodadas||{}))if(S.rodadas[rk]&&S.rodadas[rk].times&&S.rodadas[rk].times[uid])upd[`rodadas/${rk}/times/${uid}`]=null;
+  try{await api.update(upd);toast(`${nm} excluído`);}catch(e){showErr(e);}}
+window.delUserW=u=>delUser(u);
 async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await api.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
 
 /* ===================== TELAS ===================== */
@@ -400,7 +406,10 @@ function draw(){
   if(ME&&S.ready.usuarios&&!S.users[ME.uid]&&!ui.creatingUser){ui.creatingUser=true;api.set(`usuarios/${ME.uid}`,{nome:(ME.name||'Técnico').split(' ')[0].slice(0,20)}).catch(()=>{}).finally(()=>{ui.creatingUser=false;});}
   if(ME&&aberto())ensureDraft();
   const body=!loaded?'<div class="empty">Carregando…</div>':({time:vTime,mercado:vMercado,ranking:vRanking,jogos:vJogos,admin:vAdmin}[ui.tab])();
+  const dk=d=>(d.querySelector('summary')||{}).textContent.replace(/\(.*?\)/g,'').trim();
+  const openD=new Set([...$('app').querySelectorAll('details[open]')].map(dk));
   $('app').innerHTML=header()+(DEMO?demoBar():'')+body;
+  if(openD.size)$('app').querySelectorAll('details').forEach(d=>{if(openD.has(dk(d)))d.open=true;});
 }
 window.go=k=>{ui.tab=k;ui.sel=null;if(k!=='mercado')ui.pick=null;render();window.scrollTo(0,0);};
 function header(){
@@ -559,7 +568,7 @@ function vAdmin(){
        <button class="btn ghost" onclick="setStatusW('aberto')">Reabrir mercado (sem encerrar)</button>`}</div>`;
   const form=open?'':formCard();
   const jogos=cur.length?`<div class="lbl" style="padding:4px 2px">Jogos desta rodada</div>${cur.map(([id,g])=>gameCard(id,g,true)).join('')}`:'';
-  return `<div class="stack">${rod}${form}${jogos}${playersCard()}${configCard()}</div>`;
+  return `<div class="stack">${rod}${form}${jogos}${playersCard()}${usersCard()}${configCard()}</div>`;
 }
 window.seedW=()=>seed();window.setStatusW=s=>setStatus(s);window.encW=()=>encerrar();
 function formCard(){
@@ -604,6 +613,16 @@ function playersCard(){
         <button class="btn" onclick="pAddW()">Adicionar</button></div></div></details>`;
 }
 window.pSetW=(id,k,v)=>pSet(id,k,v);window.pAddW=()=>pAdd();window.ui_np=(k,v,r)=>{ui.newP[k]=v;if(r)render();};
+function usersCard(){
+  const us=Object.entries(S.users||{}).sort((a,b)=>(a[1].nome||'').localeCompare(b[1].nome||''));
+  return `<details class="card"><summary>Participantes (${us.length})</summary><div class="stack" style="margin-top:10px;gap:8px">
+    <div class="small mut">Excluir apaga o apelido, o time e os pontos da pessoa (inclusive das rodadas passadas). Se ela entrar de novo com a mesma conta Google, aparece de novo do zero.</div>
+    ${us.map(([uid,u])=>{const t=S.times[uid]&&S.times[uid].gol,pts=(S.pontos[uid]||{}).total||0,me=ME&&uid===ME.uid;
+      return `<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><div class="grow" style="min-width:0"><b>${esc(u.nome||'?')}</b>${me?' <span class="tiny mut">(você)</span>':''}
+        <div class="tiny mut">${n1(pts)} pts · ${t?'com time':'sem time'} · id ${esc(uid.slice(0,6))}</div></div>
+        ${me?'':`<button class="btn sm ghost" style="color:var(--bad);border-color:var(--bad)" onclick="delUserW('${uid}')">${ui.arm==='du'+uid?'Confirmar':'Excluir'}</button>`}</div>`;}).join('')||'<div class="small mut">Ninguém entrou ainda.</div>'}
+  </div></details>`;
+}
 function configCard(){
   return `<details class="card"><summary>Configurações</summary><div class="stack" style="margin-top:10px">
     <label class="small">Orçamento inicial de cada participante (C$)<input class="inp num" id="orc" inputmode="numeric" value="${orc()}" onchange="setOrcW(this.value)"></label>
