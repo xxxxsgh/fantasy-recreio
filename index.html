@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fantasy do Recreio</title>
 <meta name="description" content="Fantasy dos jogos de futebol do recreio">
-<meta name="theme-color" content="#ff5a1f">
+<meta name="theme-color" content="#910642">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,16 +16,16 @@
 <style>
 /* Quadra de escola: piso azul, linhas laranja, papel claro. Uma coluna, abas embaixo. */
 :root{
-  --bg:#eef1f5; --card:#ffffff; --card2:#f6f8fb; --ink:#111a2c; --mut:#5c6a7e; --line:#dbe1e9;
-  --acc:#ff5a1f; --acc-ink:#ffffff; --good:#0e9f6e; --bad:#e5484d; --gold:#f2a900;
-  --court:#1f5fa8; --court-line:rgba(255,255,255,.55);
+  --bg:#f3eff1; --card:#ffffff; --card2:#f8f4f6; --ink:#140b10; --mut:#6b5a63; --line:#e2d8dd;
+  --acc:#910642; --acc-ink:#ffffff; --good:#0e9f6e; --bad:#e5484d; --gold:#f2a900;
+  --court:#0b0b0b; --court-line:rgba(255,255,255,.6);
   --disp:'Bricolage Grotesque','Arial Black',system-ui,sans-serif;
   --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#0d121a; --card:#151c27; --card2:#1b2431; --ink:#e8eef6; --mut:#8c99ab; --line:#263243;
-  --acc:#ff6a33; --good:#2fbf8a; --bad:#ff6b6f; --gold:#ffc23d; --court:#173f6d; --court-line:rgba(255,255,255,.4); color-scheme:dark}}
+  --bg:#0b0809; --card:#171113; --card2:#20171b; --ink:#f3ecef; --mut:#a3929a; --line:#33262c;
+  --acc:#d0306f; --good:#2fbf8a; --bad:#ff6b6f; --gold:#ffc23d; --court:#000000; --court-line:rgba(255,255,255,.4); color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;min-height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;
@@ -69,7 +69,7 @@ h2{font-size:22px}h3{font-size:17px}
 .av{width:34px;height:34px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none}
 
 /* quadra */
-.court{position:relative;aspect-ratio:4/5;max-width:440px;width:100%;margin:0 auto;border-radius:16px;background:var(--court);overflow:hidden}
+.court{position:relative;aspect-ratio:4/5;max-width:440px;width:100%;margin:0 auto;border-radius:16px;background:var(--court);overflow:hidden;border:6px solid var(--acc)}
 .court::before{content:"";position:absolute;inset:10px;border:2px solid var(--court-line);border-radius:6px}
 .court::after{content:"";position:absolute;left:10px;right:10px;top:50%;border-top:2px solid var(--court-line)}
 .court .circ{position:absolute;left:50%;top:50%;width:26%;aspect-ratio:1;border:2px solid var(--court-line);border-radius:50%;transform:translate(-50%,-50%)}
@@ -118,8 +118,8 @@ h2{font-size:22px}h3{font-size:17px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card2);font-weight:600;font-size:14px}
 .chip.a{background:#e8f0ff;border-color:#3f74d8;color:#1d4fb8}
-.chip.b{background:#fff0e8;border-color:var(--acc);color:#c2410c}
-@media (prefers-color-scheme:dark){.chip.a{background:#16274a;color:#9ec0ff}.chip.b{background:#3a1d10;color:#ffb48f}}
+.chip.b{background:#fbe8f0;border-color:var(--acc);color:#910642}
+@media (prefers-color-scheme:dark){.chip.a{background:#16274a;color:#9ec0ff}.chip.b{background:#3a0f20;color:#f6a3c4}}
 .step{display:flex;align-items:center;gap:6px}
 .step button{width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card2);font-weight:800;font-size:18px}
 .step b{min-width:22px;text-align:center;font-family:var(--disp);font-size:18px}
