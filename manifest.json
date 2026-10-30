@@ -1,7 +1,7 @@
 {
-  "name": "Fantasy do Recreio",
-  "short_name": "Fantasy",
-  "description": "Fantasy dos jogos de futebol do recreio",
+  "name": "CEArtola",
+  "short_name": "CEArtola",
+  "description": "O cartola dos jogos de futebol do recreio do CEAT",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

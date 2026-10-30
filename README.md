@@ -1,6 +1,6 @@
-# Fantasy do Recreio
+# CEArtola
 
-Fantasy dos jogos de futebol do recreio. App de arquivo único (HTML) com Firebase Realtime Database e login com Google.
+O cartola dos jogos de futebol do recreio. App de arquivo único (HTML) com Firebase Realtime Database e login com Google.
 
 - **Participantes:** montam o time (1 goleiro + 4 de linha) com orçamento e capitão, e disputam o ranking.
 - **Admin:** fecha o mercado, lança os jogos (placar, gols, goleiro, craque) e encerra a rodada.
