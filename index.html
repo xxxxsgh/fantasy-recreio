@@ -406,7 +406,8 @@ window.go=k=>{ui.tab=k;ui.sel=null;if(k!=='mercado')ui.pick=null;render();window
 function header(){
   const st=!S.meta?'<span class="pill">Aguardando o admin</span>':aberto()?`<span class="pill open">● Rodada ${R()} · mercado aberto</span>`:`<span class="pill closed">● Rodada ${R()} · mercado fechado</span>`;
   const me=ME?`<button class="av" onclick="go('time')" aria-label="Minha conta">${esc(((S.users[ME.uid]||{}).nome||ME.name||'?').slice(0,1).toUpperCase())}</button>`:'';
-  return `<div class="top"><div class="logo">${LOGO}</div><div class="grow" style="min-width:0;flex:1"><h1>${esc(CONFIG.nome)}</h1><div class="sub">${st}</div></div>${me}</div>`;
+  const vr='<a class="av" href="vr.html" aria-label="Ver em realidade virtual" style="font-size:13px;text-decoration:none;margin-right:6px">VR</a>';
+  return `<div class="top"><div class="logo">${LOGO}</div><div class="grow" style="min-width:0;flex:1"><h1>${esc(CONFIG.nome)}</h1><div class="sub">${st}</div></div>${vr}${me}</div>`;
 }
 function demoBar(){return `<div class="demo stack" style="gap:6px;margin-bottom:12px"><div><b>Modo demonstração.</b> Os dados ficam só neste aparelho, sem Firebase. No GitHub Pages o app usa o banco de verdade.</div>
   <div class="row" style="flex-wrap:wrap;gap:6px"><span class="small">Entrar como:</span><button class="btn sm ghost" onclick="demoAs('admin')">Admin</button><button class="btn sm ghost" onclick="demoAs('ana')">Ana</button><button class="btn sm ghost" onclick="demoAs('beto')">Beto</button><button class="btn sm ghost" onclick="demoReset()">Zerar</button></div></div>`;}
