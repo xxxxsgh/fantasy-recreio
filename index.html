@@ -182,6 +182,8 @@ const SEED=[
   ['Levi','GOL','2º ano'],['Luiz A.','LINHA','2º ano'],['Renan','LINHA','2º ano'],['Mateus','LINHA','2º ano'],
   ['Arthur','LINHA','1º ano'],['Pedro','LINHA','1º ano'],['Tales','LINHA','1º ano'],['Sofia','GOL','1º ano'],['Guilherme','LINHA','1º ano'],['Bruno','GOL','1º ano'],['Isa','LINHA','1º ano']
 ];
+/* preços iniciais por nome (o resto fica no base) */
+const PRECO_INI={'Ian':14,'Casao':14,'Renan':14,'Ernesto A.':14,'Rafael':6,'Felipe':6,'Luiz Paulo':6,'Ernesto T.':6,'Vicente':6,'Bayao':6,'Luiz A.':6};
 const ANOS=['1º ano','2º ano','3º ano','Outro'];
 
 const DEMO=location.protocol==='file:'||new URLSearchParams(location.search).has('demo');
@@ -313,7 +315,7 @@ async function saveNick(){const v=($('nick').value||'').trim().slice(0,20);if(!v
 function armed(k){if(ui.arm===k){ui.arm=null;return true;}ui.arm=k;toast('Toque de novo pra confirmar');setTimeout(()=>{if(ui.arm===k){ui.arm=null;render();}},3500);render();return false;}
 async function seed(){
   const upd={'meta':{rodada:1,status:'aberto',orc:ORC_PADRAO,criado:Date.now()}};
-  SEED.forEach(([nome,pos,ano],i)=>{upd['jogadores/j'+String(i+1).padStart(2,'0')]={nome,pos,ano,preco:PRECO.base,ativo:true};});
+  SEED.forEach(([nome,pos,ano],i)=>{upd['jogadores/j'+String(i+1).padStart(2,'0')]={nome,pos,ano,preco:PRECO_INI[nome]??PRECO.base,ativo:true};});
   try{await api.update(upd);toast('Dados criados. Rodada 1 aberta!');}catch(e){showErr(e);}
 }
 async function setStatus(st){try{await api.set('meta/status',st);toast(st==='aberto'?'Mercado aberto':'Mercado fechado. Pode lançar os jogos.');}catch(e){showErr(e);}}
@@ -362,6 +364,14 @@ async function pSet(pid,k,v){
 async function pAdd(){const n=ui.newP;const nome=(n.nome||'').trim().slice(0,22);if(!nome)return toast('Escreva o nome.');
   if(Object.values(S.jog).some(p=>p.nome.toLowerCase()===nome.toLowerCase()))return toast('Já existe alguém com esse nome. Use uma inicial.');
   try{await api.set(`jogadores/${api.pushKey('jogadores')}`,{nome,pos:n.pos,ano:n.ano,preco:PRECO.base,ativo:true});ui.newP={nome:'',pos:'LINHA',ano:n.ano};toast(`${nome} adicionado`);}catch(e){showErr(e);}}
+async function aplicarPrecos(){
+  if(!armed('precos'))return;const upd={};let n=0;
+  for(const pid in S.jog){const v=precoIni(S.jog[pid].nome);if(S.jog[pid].preco!==v){upd[`jogadores/${pid}/preco`]=v;n++;}}
+  if(!n)return toast('Os preços já estão certos.');
+  try{await api.update(upd);toast(`${n} preço(s) atualizado(s)`);}catch(e){showErr(e);}}
+const semAc=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+function precoIni(nm){const k=Object.keys(PRECO_INI).find(x=>semAc(x)===semAc(nm));return k?PRECO_INI[k]:PRECO.base;}
+window.aplicarPrecosW=()=>aplicarPrecos();
 async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await api.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
 
 /* ===================== TELAS ===================== */
@@ -573,6 +583,7 @@ function playersCard(){
   return `<details class="card"><summary>Jogadores (${ps.filter(([,p])=>p.ativo!==false).length} ativos)</summary>
     <div class="stack" style="margin-top:10px;gap:0">
       <div class="small mut" style="padding-bottom:8px">Mude nome, ano e preço inicial. Desativar tira do mercado sem apagar o histórico.</div>
+      ${R()===1?`<button class="btn ghost" style="margin-bottom:10px" onclick="aplicarPrecosW()">${ui.arm==='precos'?'Toque de novo pra confirmar':'Aplicar preços iniciais (caros 14 · médios 10 · baratos 6)'}</button>`:''}
       ${ps.map(([id,p])=>`<div class="ed"><input class="inp" id="pn-${id}" value="${esc(p.nome)}" onchange="pSetW('${id}','nome',this.value)" aria-label="Nome">
         <select class="inp" id="pa-${id}" onchange="pSetW('${id}','ano',this.value)">${ANOS.map(a=>`<option ${p.ano===a?'selected':''}>${a}</option>`).join('')}</select>
         <input class="inp num" id="pp-${id}" inputmode="decimal" value="${n1(p.preco)}" onchange="pSetW('${id}','preco',this.value)" aria-label="Preço">
