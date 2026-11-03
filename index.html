@@ -170,6 +170,14 @@ button.tag{font-family:var(--body)}
 .mini>span{min-width:18px;text-align:center}
 .mini button{width:27px;height:30px;padding:0;border-radius:8px;border:1px solid var(--line);background:var(--card);font-weight:800}
 .mini b{min-width:15px;text-align:center;font-family:var(--disp)}
+.cem{position:absolute;left:10px;right:10px;height:12%;border:2px dashed var(--court-line);display:grid;place-items:center;color:rgba(255,255,255,.4);font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+.cem.t{top:10px}.cem.b{bottom:10px}
+.q0{top:22%;left:50%}.q1{top:39%;left:20%}.q2{top:39%;left:80%}.q3{top:64%;left:29%}.q4{top:64%;left:71%}
+.modo{display:flex;gap:6px;margin-bottom:12px}
+.modo button{flex:1 1 0;padding:10px 6px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:15px}
+.modo button.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.chip.sv{background:#e7f7ef;border-color:var(--good);color:#0b7a55}
+@media (prefers-color-scheme:dark){.chip.sv{background:#0f2e22;color:#7fe0b6}}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
 </style>
 </head>
@@ -214,6 +222,12 @@ const SEED=[
 /* preços iniciais por nome (o resto fica no base) */
 const PRECO_INI={'Ian':14,'Casao':14,'Renan':14,'Ernesto A.':14,'Rafael':6,'Felipe':6,'Luiz Paulo':6,'Ernesto T.':6,'Vicente':6,'Bayao':6,'Luiz A.':6};
 const ANOS=['1º ano','2º ano','3º ano','Outro'];
+/* ---- queimado ---- */
+const SEED_Q=['Marina','Nina','Heitor','Ian','Rafael','Luiz Paulo','Caetano','Naiara','Vicente','Anna Julia','Felipe','Casao','Vika','Lia','Bayao'];
+const PTS_Q={jogou:1,vitoria:3,queimou:2,sobrou:3,craque:4};
+const MODOS={f:{nome:'Futebol',ico:'⚽',n:4,gol:true},q:{nome:'Queimado',ico:'🔥',n:5,gol:false}};
+let MODO='f';try{if(localStorage.getItem('cea_modo')==='q')MODO='q';}catch(e){}
+const isQ=()=>MODO==='q',NL=()=>MODOS[MODO].n;
 
 const DEMO=location.protocol==='file:'||new URLSearchParams(location.search).has('demo');
 const $=id=>document.getElementById(id);
@@ -270,9 +284,15 @@ async function fireApi(){
 }
 
 /* ===================== ESTADO ===================== */
-const S={meta:null,jog:{},jogos:{},times:{},users:{},pontos:{},rodadas:{},ligas:{},ready:{}};
+const mkS=()=>({meta:null,jog:{},jogos:{},times:{},users:{},pontos:{},rodadas:{},ligas:{},sorteio:null,ready:{}});
+const DS={f:mkS(),q:mkS()};let S=DS[MODO];
+/* caminhos de cada modo: futebol na raiz, queimado dentro de q/ */
+const MK=['meta','jogadores','jogos','times','pontos','rodadas','sorteio'];
+const P=pth=>MODO==='q'&&MK.includes(String(pth).split('/')[0])?'q/'+pth:pth;
+const db={set:(a,v)=>api.set(P(a),v),update:m=>{const o={};for(const k in m)o[P(k)]=m[k];return api.update(o);},pushKey:a=>api.pushKey(P(a))};
+const hasT=t=>!!t&&teamIds(t).length>0;
 let ME=null,draft=null;
-const ui={sheet:null,liga:'',convite:null,tab:'time',sel:null,pick:null,filtro:'todos',ano:'todos',sort:'preco',rk:'geral',open:null,form:null,arm:null,nick:false,newP:{nome:'',pos:'LINHA',ano:'1º ano'}};
+const ui={sorte:{pres:{},res:null,eq:true},sheet:null,liga:'',convite:null,tab:'time',sel:null,pick:null,filtro:'todos',ano:'todos',sort:'preco',rk:'geral',open:null,form:null,arm:null,nick:false,newP:{nome:'',pos:'LINHA',ano:'1º ano'}};
 const isAdmin=()=>!!ME&&ME.email===CONFIG.admin;
 const R=()=>S.meta?S.meta.rodada:1;
 const aberto=()=>!!S.meta&&S.meta.status==='aberto'&&!(S.meta.fecha&&Date.now()>=S.meta.fecha);
@@ -286,7 +306,10 @@ const rKey=r=>'r'+r;
 const roundsDone=()=>Object.keys(S.rodadas||{}).map(k=>+k.slice(1)).filter(Boolean).sort((a,b)=>a-b);
 
 /* ===================== CÁLCULOS ===================== */
-function gamePts(g){
+function gamePtsQ(g){const out={},win=g.pa>g.pb?'a':g.pb>g.pa?'b':null,Q=g.qm||{},V=g.sv||{};
+  ['a','b'].forEach(side=>Object.keys(g[side]||{}).forEach(pid=>{let p=PTS_Q.jogou;if(win===side)p+=PTS_Q.vitoria;p+=(Q[pid]||0)*PTS_Q.queimou;if(V[pid])p+=PTS_Q.sobrou;if(g.craque===pid)p+=PTS_Q.craque;out[pid]=(out[pid]||0)+p;}));
+  return out;}
+function gamePts(g){if(isQ())return gamePtsQ(g);
   const out={},win=g.pa>g.pb?'a':g.pb>g.pa?'b':null,G=g.gols||{},A=g.ast||{},C=g.gc||{};
   ['a','b'].forEach(side=>Object.keys(g[side]||{}).forEach(pid=>{
     let p=PTS.jogou;if(win===side)p+=PTS.vitoria;p+=(G[pid]||0)*PTS.gol+(A[pid]||0)*PTS.assist+(C[pid]||0)*PTS.golContra;
@@ -312,8 +335,8 @@ function pStats(pid){
 }
 function validTeam(t){
   const errs=[];if(!t)return ['Monte seu time.'];
-  if(!t.gol)errs.push('Falta o goleiro.');else if(!J(t.gol)||J(t.gol).pos!=='GOL')errs.push('O goleiro precisa ser um jogador de gol.');
-  const l=(t.linha||[]).filter(Boolean);if(l.length<4)errs.push(`Faltam ${4-l.length} jogador(es) de linha.`);
+  if(isQ()){if(t.gol)errs.push('No queimado não tem goleiro.');}else if(!t.gol)errs.push('Falta o goleiro.');else if(!J(t.gol)||J(t.gol).pos!=='GOL')errs.push('O goleiro precisa ser um jogador de gol.');
+  const l=(t.linha||[]).filter(Boolean);if(l.length<NL())errs.push(`Faltam ${NL()-l.length} jogador(es)${isQ()?'':' de linha'}.`);
   if(l.some(id=>!J(id)||J(id).pos!=='LINHA'))errs.push('Só jogadores de linha nas vagas de linha.');
   if(new Set(teamIds(t)).size!==teamIds(t).length)errs.push('Jogador repetido.');
   if(teamIds(t).some(id=>J(id)&&J(id).ativo===false))errs.push('Tem jogador inativo no time.');
@@ -328,7 +351,7 @@ function validTeam(t){
 const sameTeam=(a,b)=>{const k=t=>t?JSON.stringify({g:t.gol||null,l:t.linha,c:t.cap||null,rg:(t.res&&t.res.g)||null,rl:(t.res&&t.res.l)||null}):'';return k(a)===k(b);};
 
 /* ===================== AÇÕES DO PARTICIPANTE ===================== */
-function ensureDraft(){if(!ME)return;if(!draft){const t=S.times[ME.uid];draft=t?{gol:t.gol||null,linha:(t.linha||[null,null,null,null]).slice(0,4),cap:t.cap||null,res:{g:(t.res&&t.res.g)||null,l:(t.res&&t.res.l)||null}}:{gol:null,linha:[null,null,null,null],cap:null,res:{g:null,l:null}};while(draft.linha.length<4)draft.linha.push(null);}}
+function ensureDraft(){if(!ME)return;if(!draft){const t=S.times[ME.uid];draft=t?{gol:t.gol||null,linha:(t.linha||[]).slice(0,NL()),cap:t.cap||null,res:{g:(t.res&&t.res.g)||null,l:(t.res&&t.res.l)||null}}:{gol:null,linha:Array(NL()).fill(null),cap:null,res:{g:null,l:null}};while(draft.linha.length<NL())draft.linha.push(null);}}
 function slotOf(pid){if(draft.gol===pid)return 'g';const i=draft.linha.indexOf(pid);if(i>=0)return i;if(draft.res.g===pid)return 'rg';if(draft.res.l===pid)return 'rl';return null;}
 const slotId=s=>s==='g'?draft.gol:s==='rg'?draft.res.g:s==='rl'?draft.res.l:draft.linha[s];
 const sk=s=>(s==='g'||s==='rg'||s==='rl')?s:+s;
@@ -340,7 +363,7 @@ function escalar(pid){
   if(pk==='rg'||pk==='rl'){if((pk==='rg')!==(p.pos==='GOL'))return toast(pk==='rg'?'Escolha um goleiro.':'Escolha um jogador de linha.');draft.res[pk==='rg'?'g':'l']=pid;}
   else if(p.pos==='GOL'){draft.gol=pid;if(!draft.cap)draft.cap=pid;}
   else{const i=pk!=null&&pk!=='g'?pk:draft.linha.indexOf(null);
-    if(i<0){if(draft.res.l)return toast('Sua linha e o banco estão cheios. Tire alguém antes.');draft.res.l=pid;toast(`${p.nome} foi pro banco como reserva.`);}
+    if(i<0){if(draft.res.l)return toast(isQ()?'Seu time e o banco estão cheios. Tire alguém antes.':'Sua linha e o banco estão cheios. Tire alguém antes.');draft.res.l=pid;toast(`${p.nome} foi pro banco como reserva.`);}
     else{const out=draft.linha[i];draft.linha[i]=pid;if(draft.cap===out)draft.cap=null;if(!draft.cap)draft.cap=pid;}}
   if(pk!=null){ui.pick=null;ui.tab='time';}
   render();
@@ -356,19 +379,22 @@ async function salvar(){
   ensureDraft();const errs=validTeam(draft);if(errs.length)return toast(errs[0]);
   if(teamCost(draft)>budgetOf(ME.uid)+1e-9)return toast('Passou do seu orçamento.');
   const o={gol:draft.gol,linha:draft.linha,cap:draft.cap,ts:Date.now()},rs={};if(draft.res.g)rs.g=draft.res.g;if(draft.res.l)rs.l=draft.res.l;if(rs.g||rs.l)o.res=rs;
-  try{await api.set(`times/${ME.uid}`,o);toast('Time salvo!');}catch(e){showErr(e);}
+  try{await db.set(`times/${ME.uid}`,o);toast('Time salvo!');}catch(e){showErr(e);}
 }
 async function saveNick(){const v=($('nick').value||'').trim().slice(0,20);if(!v)return toast('Escreva um apelido.');
-  try{await api.set(`usuarios/${ME.uid}`,{nome:v});ui.nick=false;toast('Apelido salvo');}catch(e){showErr(e);}}
+  try{await db.set(`usuarios/${ME.uid}`,{nome:v});ui.nick=false;toast('Apelido salvo');}catch(e){showErr(e);}}
 
 /* ===================== AÇÕES DO ADMIN ===================== */
 function armed(k){if(ui.arm===k){ui.arm=null;return true;}ui.arm=k;toast('Toque de novo pra confirmar');setTimeout(()=>{if(ui.arm===k){ui.arm=null;render();}},3500);render();return false;}
 async function seed(){
+  if(isQ()){const upd={meta:{rodada:1,status:'aberto',orc:ORC_PADRAO,criado:Date.now()}};
+    SEED_Q.forEach((nome,i)=>{upd['jogadores/q'+String(i+1).padStart(2,'0')]={nome,pos:'LINHA',ano:'',preco:PRECO.base,ativo:true};});
+    try{await db.update(upd);toast('Queimado criado. Rodada 1 aberta!');}catch(e){showErr(e);}return;}
   const upd={'meta':{rodada:1,status:'aberto',orc:ORC_PADRAO,criado:Date.now()}};
   SEED.forEach(([nome,pos,ano],i)=>{upd['jogadores/j'+String(i+1).padStart(2,'0')]={nome,pos,ano,preco:PRECO_INI[nome]??PRECO.base,ativo:true};});
-  try{await api.update(upd);toast('Dados criados. Rodada 1 aberta!');}catch(e){showErr(e);}
+  try{await db.update(upd);toast('Dados criados. Rodada 1 aberta!');}catch(e){showErr(e);}
 }
-async function setStatus(st){try{await api.update({'meta/status':st,'meta/fecha':null});toast(st==='aberto'?'Mercado aberto':'Mercado fechado. Pode lançar os jogos.');}catch(e){showErr(e);}}
+async function setStatus(st){try{await db.update({'meta/status':st,'meta/fecha':null});toast(st==='aberto'?'Mercado aberto':'Mercado fechado. Pode lançar os jogos.');}catch(e){showErr(e);}}
 const toLocalInput=ts=>{const d=new Date(ts);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);};
 function fmtFecha(ts){const d=new Date(ts),hh=d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),ds=d.toDateString();
   if(ds===new Date().toDateString())return `hoje às ${hh}`;if(ds===new Date(Date.now()+864e5).toDateString())return `amanhã às ${hh}`;
@@ -379,7 +405,7 @@ async function setFecha(modo){let ts=null,upd={};
   else if(modo==='prox'){ts=proxUtil(S.meta.hora);}
   else{const v=($('ffecha')||{}).value;if(!v)return toast('Escolha o dia e a hora.');ts=new Date(v).getTime();if(!(ts>Date.now()))return toast('Escolha um horário no futuro.');
     const d=new Date(ts);upd['meta/hora']=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
-  upd['meta/fecha']=ts;try{await api.update(upd);toast(ts?`O mercado fecha ${fmtFecha(ts)}`:'Fechamento automático desligado');}catch(e){showErr(e);}}
+  upd['meta/fecha']=ts;try{await db.update(upd);toast(ts?`O mercado fecha ${fmtFecha(ts)}`:'Fechamento automático desligado');}catch(e){showErr(e);}}
 window.setFechaW=m=>setFecha(m);
 async function encerrar(){
   if(!armed('enc'))return;
@@ -388,19 +414,19 @@ async function encerrar(){
   for(const pid in S.jog){const j=S.jog[pid],p0=j.preco??PRECO.base;
     const p1=pp[pid]!=null?clamp(r1(p0+(pp[pid]-avg)*PRECO.k),PRECO.min,PRECO.max):Math.max(PRECO.min,r1(p0-PRECO.naoJogou));
     p1s[pid]=[p0,p1];upd[`rodadas/${rKey(r)}/jog/${pid}`]={pts:pp[pid]||0,j:jc[pid]||0,p0,p1};upd[`jogadores/${pid}/preco`]=p1;}
-  for(const uid in S.times){const t=S.times[uid];if(!t||!t.gol)continue;const pts=teamPts(t,pp),prev=S.pontos[uid]||{};
+  for(const uid in S.times){const t=S.times[uid];if(!hasT(t))continue;const pts=teamPts(t,pp),prev=S.pontos[uid]||{};
     const delta=teamIds(t).reduce((a,id)=>a+(p1s[id]?p1s[id][1]-p1s[id][0]:0),0);
-    const snap={gol:t.gol,linha:t.linha,cap:t.cap,pts};if(t.res)snap.res=t.res;upd[`rodadas/${rKey(r)}/times/${uid}`]=snap;
+    const snap={linha:t.linha,cap:t.cap,pts};if(t.gol)snap.gol=t.gol;if(t.res)snap.res=t.res;upd[`rodadas/${rKey(r)}/times/${uid}`]=snap;
     upd[`pontos/${uid}/${rKey(r)}`]=pts;upd[`pontos/${uid}/total`]=(prev.total||0)+pts;upd[`pontos/${uid}/cart`]=r1((prev.cart!=null?prev.cart:orc())+delta);}
   upd[`rodadas/${rKey(r)}/fim`]=Date.now();upd['meta/rodada']=r+1;upd['meta/status']='aberto';upd['meta/fecha']=null;
-  try{await api.update(upd);toast(`Rodada ${r} encerrada! Mercado da rodada ${r+1} aberto.`);}catch(e){showErr(e);}
+  try{await db.update(upd);toast(`Rodada ${r} encerrada! Mercado da rodada ${r+1} aberto.`);}catch(e){showErr(e);}
 }
 /* formulário de jogo */
-function newForm(){return {id:null,data:today(),a:{},b:{},pa:0,pb:0,gols:{},ast:{},gc:{},ga:'',gb:'',craque:''};}
+function newForm(){return {id:null,data:today(),a:{},b:{},pa:0,pb:0,gols:{},ast:{},gc:{},qm:{},sv:{},win:'',ga:'',gb:'',craque:''};}
 function fSide(f,pid){return f.a[pid]?'a':f.b[pid]?'b':null;}
 function fAutoGK(f,side){const ids=Object.keys(f[side]);const k=side==='a'?'ga':'gb';if(!f[k]||!f[side][f[k]]){const gk=ids.find(id=>J(id)&&J(id).pos==='GOL');f[k]=gk||'';}}
 function fChip(pid){const f=ui.form,s=fSide(f,pid);
-  if(s==='a'){delete f.a[pid];f.b[pid]=true;}else if(s==='b'){delete f.b[pid];delete f.gols[pid];delete f.ast[pid];delete f.gc[pid];if(f.craque===pid)f.craque='';}else f.a[pid]=true;
+  if(s==='a'){delete f.a[pid];f.b[pid]=true;}else if(s==='b'){delete f.b[pid];delete f.gols[pid];delete f.ast[pid];delete f.gc[pid];delete f.qm[pid];delete f.sv[pid];if(f.craque===pid)f.craque='';}else f.a[pid]=true;
   if(f.ga&&!f.a[f.ga])f.ga='';if(f.gb&&!f.b[f.gb])f.gb='';fAutoGK(f,'a');fAutoGK(f,'b');fFix(f);render();}
 function fSum(f,side){const o=side==='a'?'b':'a';return Object.keys(f[side]).reduce((a,id)=>a+(f.gols[id]||0),0)+Object.keys(f[o]).reduce((a,id)=>a+(f.gc[id]||0),0);}
 function fFix(f){f.pa=Math.max(f.pa,fSum(f,'a'));f.pb=Math.max(f.pb,fSum(f,'b'));}
@@ -410,45 +436,49 @@ function fSet(k,v){ui.form[k]=v;render();}
 async function fSave(){
   const f=ui.form;if(!Object.keys(f.a).length||!Object.keys(f.b).length)return toast('Coloque jogadores nos dois times.');
   if(aberto())return toast('Feche o mercado antes de lançar jogos.');
-  const id=f.id||api.pushKey('jogos'),old=f.id&&S.jogos[f.id];
+  if(isQ()&&!f.win)return toast('Marque qual time venceu.');
+  if(isQ()){f.pa=f.win==='a'?1:0;f.pb=f.win==='b'?1:0;f.ga='';f.gb='';}
+  const id=f.id||db.pushKey('jogos'),old=f.id&&S.jogos[f.id];
   const g={r:old?old.r:R(),data:f.data||today(),a:f.a,b:f.b,pa:f.pa,pb:f.pb,ga:f.ga||'',gb:f.gb||'',craque:f.craque||'',ts:old?old.ts:Date.now()};
-  ['gols','ast','gc'].forEach(k=>{const o={};for(const id in (f[k]||{}))if(f[k][id]>0&&(f.a[id]||f.b[id]))o[id]=f[k][id];if(Object.keys(o).length)g[k]=o;});
-  try{await api.set(`jogos/${id}`,g);ui.form=null;toast(f.id?'Jogo atualizado':'Jogo lançado!');render();}catch(e){showErr(e);}
+  (isQ()?['qm']:['gols','ast','gc']).forEach(k=>{const o={};for(const id in (f[k]||{}))if(f[k][id]>0&&(f.a[id]||f.b[id]))o[id]=f[k][id];if(Object.keys(o).length)g[k]=o;});
+  if(isQ()){const v={};for(const k in (f.sv||{}))if(f.sv[k]&&(f.a[k]||f.b[k]))v[k]=true;if(Object.keys(v).length)g.sv=v;}
+  try{await db.set(`jogos/${id}`,g);ui.form=null;toast(f.id?'Jogo atualizado':'Jogo lançado!');render();}catch(e){showErr(e);}
 }
-function fEdit(id){const g=S.jogos[id];ui.form={id,data:g.data,a:Object.assign({},g.a),b:Object.assign({},g.b),pa:g.pa,pb:g.pb,gols:Object.assign({},g.gols||{}),ast:Object.assign({},g.ast||{}),gc:Object.assign({},g.gc||{}),ga:g.ga||'',gb:g.gb||'',craque:g.craque||''};ui.tab='admin';render();window.scrollTo(0,0);}
-async function fDel(id){if(!armed('del'+id))return;try{await api.set(`jogos/${id}`,null);toast('Jogo apagado');}catch(e){showErr(e);}}
+function fEdit(id){const g=S.jogos[id];ui.form={id,data:g.data,a:Object.assign({},g.a),b:Object.assign({},g.b),pa:g.pa,pb:g.pb,gols:Object.assign({},g.gols||{}),ast:Object.assign({},g.ast||{}),gc:Object.assign({},g.gc||{}),qm:Object.assign({},g.qm||{}),sv:Object.assign({},g.sv||{}),win:g.pa>g.pb?'a':g.pb>g.pa?'b':'',ga:g.ga||'',gb:g.gb||'',craque:g.craque||''};ui.tab='admin';render();window.scrollTo(0,0);}
+async function fDel(id){if(!armed('del'+id))return;try{await db.set(`jogos/${id}`,null);toast('Jogo apagado');}catch(e){showErr(e);}}
 async function pSet(pid,k,v){
   const p=S.jog[pid];if(!p)return;let val=v;
   if(k==='nome'){val=String(v).trim().slice(0,22);if(!val)return render();}
   if(k==='preco'){val=clamp(r1(parseFloat(String(v).replace(',','.'))||PRECO.base),1,50);}
-  try{await api.set(`jogadores/${pid}/${k}`,val);}catch(e){showErr(e);}
+  try{await db.set(`jogadores/${pid}/${k}`,val);}catch(e){showErr(e);}
 }
 async function pAdd(){const n=ui.newP;const nome=(n.nome||'').trim().slice(0,22);if(!nome)return toast('Escreva o nome.');
   if(Object.values(S.jog).some(p=>p.nome.toLowerCase()===nome.toLowerCase()))return toast('Já existe alguém com esse nome. Use uma inicial.');
-  try{await api.set(`jogadores/${api.pushKey('jogadores')}`,{nome,pos:n.pos,ano:n.ano,preco:PRECO.base,ativo:true});ui.newP={nome:'',pos:'LINHA',ano:n.ano};toast(`${nome} adicionado`);}catch(e){showErr(e);}}
+  try{await db.set(`jogadores/${db.pushKey('jogadores')}`,{nome,pos:isQ()?'LINHA':n.pos,ano:n.ano,preco:PRECO.base,ativo:true});ui.newP={nome:'',pos:'LINHA',ano:n.ano};toast(`${nome} adicionado`);}catch(e){showErr(e);}}
 async function aplicarPrecos(){
   if(!armed('precos'))return;const upd={};let n=0;
   for(const pid in S.jog){const v=precoIni(S.jog[pid].nome);if(S.jog[pid].preco!==v){upd[`jogadores/${pid}/preco`]=v;n++;}}
   if(!n)return toast('Os preços já estão certos.');
-  try{await api.update(upd);toast(`${n} preço(s) atualizado(s)`);}catch(e){showErr(e);}}
+  try{await db.update(upd);toast(`${n} preço(s) atualizado(s)`);}catch(e){showErr(e);}}
 const semAc=t=>String(t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-function precoIni(nm){const k=Object.keys(PRECO_INI).find(x=>semAc(x)===semAc(nm));return k?PRECO_INI[k]:PRECO.base;}
+function precoIni(nm){if(isQ())return PRECO.base;const k=Object.keys(PRECO_INI).find(x=>semAc(x)===semAc(nm));return k?PRECO_INI[k]:PRECO.base;}
 window.aplicarPrecosW=()=>aplicarPrecos();
 async function reiniciar(){
   if(semAc(ui.rst||'')!=='reiniciar')return toast('Escreva REINICIAR pra confirmar.');
   const upd={meta:{rodada:1,status:'aberto',orc:orc(),criado:Date.now()},jogos:null,rodadas:null,pontos:null};
   for(const uid in (S.times||{}))upd[`times/${uid}`]=null;
   for(const pid in S.jog)upd[`jogadores/${pid}/preco`]=precoIni(S.jog[pid].nome);
-  try{await api.update(upd);ui.rst='';ui.form=null;toast('Tudo reiniciado. Rodada 1 aberta!');render();}catch(e){showErr(e);}}
+  try{await db.update(upd);ui.rst='';ui.form=null;toast('Tudo reiniciado. Rodada 1 aberta!');render();}catch(e){showErr(e);}}
 window.reiniciarW=()=>reiniciar();window.rstIn=v=>{ui.rst=v;const b=$('rstb');if(b)b.disabled=semAc(v)!=='reiniciar';};
 async function delUser(uid){
   if(!armed('du'+uid))return;const nm=(S.users[uid]||{}).nome||'?';
-  const upd={[`usuarios/${uid}`]:null,[`times/${uid}`]:null,[`pontos/${uid}`]:null};
-  for(const rk in (S.rodadas||{}))if(S.rodadas[rk]&&S.rodadas[rk].times&&S.rodadas[rk].times[uid])upd[`rodadas/${rk}/times/${uid}`]=null;
+  const upd={[`usuarios/${uid}`]:null};
+  ['f','q'].forEach(m=>{const px=m==='q'?'q/':'',T=DS[m];upd[`${px}times/${uid}`]=null;upd[`${px}pontos/${uid}`]=null;
+    for(const rk in (T.rodadas||{}))if(T.rodadas[rk]&&T.rodadas[rk].times&&T.rodadas[rk].times[uid])upd[`${px}rodadas/${rk}/times/${uid}`]=null;});
   for(const c in (S.ligas||{})){const l=S.ligas[c];if(!l)continue;if(l.dono===uid)upd[`ligas/${c}`]=null;else if(l.membros&&l.membros[uid])upd[`ligas/${c}/membros/${uid}`]=null;}
   try{await api.update(upd);toast(`${nm} excluído`);}catch(e){showErr(e);}}
 window.delUserW=u=>delUser(u);
-async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await api.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
+async function setOrc(v){const x=clamp(Math.round(parseFloat(String(v).replace(',','.'))||ORC_PADRAO),20,200);try{await db.set('meta/orc',x);toast('Orçamento atualizado');}catch(e){showErr(e);}}
 
 /* ===================== TELAS ===================== */
 const ICON={
@@ -466,17 +496,21 @@ function draw(){
   if(ui.tab==='admin'&&!isAdmin())ui.tab='time';
   $('nav').hidden=false;$('navin').innerHTML=tabs.map(([k,n])=>`<button class="${ui.tab===k?'on':''}" onclick="go('${k}')">${ICON[k]}<span>${n}</span></button>`).join('');
   const loaded=['meta','jogadores','jogos','times','usuarios','pontos','rodadas','ligas'].every(k=>S.ready[k]);
-  if(ME&&S.ready.usuarios&&!S.users[ME.uid]&&!ui.creatingUser){ui.creatingUser=true;api.set(`usuarios/${ME.uid}`,{nome:(ME.name||'Técnico').split(' ')[0].slice(0,20)}).catch(()=>{}).finally(()=>{ui.creatingUser=false;});}
+  if(ME&&S.ready.usuarios&&!S.users[ME.uid]&&!ui.creatingUser){ui.creatingUser=true;db.set(`usuarios/${ME.uid}`,{nome:(ME.name||'Técnico').split(' ')[0].slice(0,20)}).catch(()=>{}).finally(()=>{ui.creatingUser=false;});}
   if(ME&&aberto())ensureDraft();
   const body=!loaded?'<div class="empty">Carregando…</div>':({time:vTime,mercado:vMercado,ranking:vRanking,jogos:vJogos,admin:vAdmin}[ui.tab])();
   const dk=d=>(d.querySelector('summary')||{}).textContent.replace(/\(.*?\)/g,'').trim();
   const openD=new Set([...$('app').querySelectorAll('details[open]')].map(dk));
   const oldSh=document.querySelector('.sheet'),shKey=ui.sheet?ui.sheet.t+ui.sheet.id:'',shTop=oldSh&&oldSh.dataset.k===shKey?oldSh.scrollTop:0;
-  $('app').innerHTML=header()+(loaded?fechaBanner()+conviteCard():'')+(DEMO?demoBar():'')+body+(loaded?sheetHtml():'');
+  $('app').innerHTML=header()+modoBar()+(loaded?fechaBanner()+conviteCard():'')+(DEMO?demoBar():'')+body+(loaded?sheetHtml():'');
   const nSh=document.querySelector('.sheet');if(nSh){nSh.dataset.k=shKey;nSh.scrollTop=shTop;}
   document.body.style.overflow=ui.sheet?'hidden':'';
   if(openD.size)$('app').querySelectorAll('details').forEach(d=>{if(openD.has(dk(d)))d.open=true;});
 }
+function modoBar(){return `<div class="modo" role="tablist">${Object.entries(MODOS).map(([k,m])=>`<button role="tab" aria-selected="${MODO===k}" class="${MODO===k?'on':''}" onclick="setModo('${k}')">${m.ico} ${m.nome}</button>`).join('')}</div>`;}
+window.setModo=m=>{if(m===MODO)return;MODO=m;S=DS[m];draft=null;ui.sel=null;ui.pick=null;ui.form=null;ui.filtro='todos';ui.ano='todos';ui.arm=null;
+  if(ui.sheet){ui.sheet=null;try{if(history.state&&history.state.sheet)history.back();}catch(e){}}
+  try{localStorage.setItem('cea_modo',m);}catch(e){}render();window.scrollTo(0,0);};
 window.go=k=>{ui.tab=k;ui.sel=null;if(k!=='mercado')ui.pick=null;render();window.scrollTo(0,0);};
 function header(){
   const st=!S.meta?'<span class="pill">Aguardando o admin</span>':aberto()?`<span class="pill open">● Rodada ${R()} · mercado aberto</span>`:`<span class="pill closed">● Rodada ${R()} · mercado fechado</span>`;
@@ -501,7 +535,7 @@ window.doLogout=async()=>{draft=null;await api.logout();toast('Você saiu');};
 function fechaBanner(){
   if(!S.meta||!S.meta.fecha||S.meta.status!=='aberto')return '';const ms=S.meta.fecha-Date.now();if(ms<=0)return '';
   const h=Math.floor(ms/36e5),m=Math.floor(ms%36e5/6e4),falta=h>=24?'':h?`faltam ${h}h${String(m).padStart(2,'0')}`:`faltam ${Math.max(1,m)} min`;
-  const meu=ME&&!(S.times[ME.uid]&&S.times[ME.uid].gol)?' · <b>você ainda não salvou seu time</b>':(ME&&draft&&!sameTeam(draft,S.times[ME.uid])?' · <b>você tem alterações não salvas</b>':'');
+  const meu=ME&&!hasT(S.times[ME.uid])?' · <b>você ainda não salvou seu time</b>':(ME&&draft&&!sameTeam(draft,S.times[ME.uid])?' · <b>você tem alterações não salvas</b>':'');
   return `<div class="banner ${ms<3*36e5?'soon':''}"><span aria-hidden="true">⏰</span><span>Mercado fecha <b>${fmtFecha(S.meta.fecha)}</b>${falta?` (${falta})`:''}${meu}</span></div>`;
 }
 let lastTick='';setInterval(()=>{const k=aberto()+'|'+fechaBanner();if(k===lastTick)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName))return;lastTick=k;render();},20000);
@@ -514,7 +548,7 @@ function conviteCard(){
   return `<div class="card" style="border-color:var(--acc);margin-bottom:12px"><div class="lbl">Convite</div><div>Você foi chamado pra liga <b>${esc(l.nome)}</b>.</div>
     ${ME?`<div class="row"><button class="btn" onclick="conviteOk()">Entrar na liga</button><button class="btn ghost" onclick="conviteX()">Agora não</button></div>`:'<div class="small mut">Entre com o Google aqui embaixo e depois toque em <b>Entrar na liga</b>.</div>'}</div>`;
 }
-window.conviteOk=async()=>{const c=ui.convite;try{await api.set(`ligas/${c}/membros/${ME.uid}`,true);ui.liga=c;saveLiga();toast('Você entrou na liga!');window.conviteX();ui.tab='ranking';render();}catch(e){showErr(e);}};
+window.conviteOk=async()=>{const c=ui.convite;try{await db.set(`ligas/${c}/membros/${ME.uid}`,true);ui.liga=c;saveLiga();toast('Você entrou na liga!');window.conviteX();ui.tab='ranking';render();}catch(e){showErr(e);}};
 window.conviteX=()=>{ui.convite=null;try{const q=new URLSearchParams(location.search);q.delete('liga');const qs=q.toString();history.replaceState(history.state,'',location.pathname+(qs?'?'+qs:''));}catch(e){}render();};
 
 /* ---- ligas ---- */
@@ -524,16 +558,16 @@ async function ligaCriar(){
   const nome=(($('lgnome')||{}).value||'').trim().slice(0,24);if(!nome)return toast('Dê um nome pra liga.');
   if(Object.values(S.ligas||{}).filter(l=>l&&l.dono===ME.uid).length>=5)return toast('Você já criou 5 ligas.');
   let c;do{c=Array.from({length:5},()=>LCH[Math.floor(Math.random()*LCH.length)]).join('');}while(S.ligas&&S.ligas[c]);
-  try{await api.set(`ligas/${c}`,{nome,dono:ME.uid,criada:Date.now(),membros:{[ME.uid]:true}});ui.liga=c;saveLiga();toast(`Liga criada! Código ${c}`);}catch(e){showErr(e);}
+  try{await db.set(`ligas/${c}`,{nome,dono:ME.uid,criada:Date.now(),membros:{[ME.uid]:true}});ui.liga=c;saveLiga();toast(`Liga criada! Código ${c}`);}catch(e){showErr(e);}
 }
 async function ligaEntrar(){
   const c=(($('lgcod')||{}).value||'').trim().toUpperCase();const l=S.ligas&&S.ligas[c];if(!c)return toast('Escreva o código.');if(!l)return toast('Código não encontrado.');
   if(l.membros&&l.membros[ME.uid])return toast('Você já está nessa liga.');
-  try{await api.set(`ligas/${c}/membros/${ME.uid}`,true);ui.liga=c;saveLiga();toast(`Você entrou na liga ${l.nome}`);}catch(e){showErr(e);}
+  try{await db.set(`ligas/${c}/membros/${ME.uid}`,true);ui.liga=c;saveLiga();toast(`Você entrou na liga ${l.nome}`);}catch(e){showErr(e);}
 }
 async function ligaSair(c){
   const l=S.ligas[c];if(!l||!armed('lg'+c))return;const dono=l.dono===ME.uid;
-  try{await api.set(dono?`ligas/${c}`:`ligas/${c}/membros/${ME.uid}`,null);if(ui.liga===c){ui.liga='';saveLiga();}toast(dono?'Liga apagada':'Você saiu da liga');}catch(e){showErr(e);}
+  try{await db.set(dono?`ligas/${c}`:`ligas/${c}/membros/${ME.uid}`,null);if(ui.liga===c){ui.liga='';saveLiga();}toast(dono?'Liga apagada':'Você saiu da liga');}catch(e){showErr(e);}
 }
 async function ligaConv(c){
   const l=S.ligas[c];if(!l)return;const url=location.origin+location.pathname+'?liga='+c,txt=`Entra na minha liga "${l.nome}" no CEArtola! Código: ${c}`;
@@ -595,25 +629,26 @@ function teamTags(t,pp){
 }
 function fichaSheet(pid){
   const p=J(pid);if(!p)return '<div class="empty">Jogador não encontrado.</div>';
-  let j=0,v=0,g=0,a=0,gc=0,cr=0;const games=[];
+  let j=0,v=0,g=0,a=0,gc=0,cr=0,qm=0,sv=0;const games=[];
   Object.entries(S.jogos||{}).forEach(([id,gm])=>{const s=gm.a&&gm.a[pid]?'a':gm.b&&gm.b[pid]?'b':null;if(!s)return;j++;
-    const win=gm.pa>gm.pb?'a':gm.pb>gm.pa?'b':null;if(win===s)v++;g+=(gm.gols||{})[pid]||0;a+=(gm.ast||{})[pid]||0;gc+=(gm.gc||{})[pid]||0;if(gm.craque===pid)cr++;games.push([id,gm,s]);});
+    const win=gm.pa>gm.pb?'a':gm.pb>gm.pa?'b':null;if(win===s)v++;g+=(gm.gols||{})[pid]||0;a+=(gm.ast||{})[pid]||0;gc+=(gm.gc||{})[pid]||0;if(gm.craque===pid)cr++;qm+=(gm.qm||{})[pid]||0;if((gm.sv||{})[pid])sv++;games.push([id,gm,s]);});
   games.sort((x,y)=>(y[1].data||'').localeCompare(x[1].data||'')||(y[1].ts||0)-(x[1].ts||0));
   const done=roundsDone(),rj=rr=>((S.rodadas[rKey(rr)]||{}).jog||{})[pid],st=pStats(pid);
   const last12=done.slice(-12),pts=last12.map(rr=>(rj(rr)||{}).pts||0);
   const precos=[],lab=[];last12.forEach(rr=>{const x=rj(rr);if(!x)return;if(!precos.length){precos.push(x.p0??PRECO.base);lab.push('início');}precos.push(x.p1??x.p0);lab.push('R'+rr);});
   const open=aberto(),inT=ME&&open&&draft&&slotOf(pid)!=null,{pp}=roundPts(R()),hoje=!open&&pp[pid]!=null?pp[pid]:null;
   const gl=games.slice(0,10).map(([id,gm,s])=>{const gp=gamePts(gm)[pid]||0,my=s==='a'?gm.pa:gm.pb,op=s==='a'?gm.pb:gm.pa,res=my>op?'V':my<op?'D':'E';
-    const G=(gm.gols||{})[pid],A=(gm.ast||{})[pid],C=(gm.gc||{})[pid],bits=[];if(G)bits.push(G+' gol'+(G>1?'s':''));if(A)bits.push(A+' assist.');if(C)bits.push(C+' contra');if(gm.craque===pid)bits.push('craque');
+    const G=(gm.gols||{})[pid],A=(gm.ast||{})[pid],C=(gm.gc||{})[pid],QM=(gm.qm||{})[pid],bits=[];if(QM)bits.push('queimou '+QM);if((gm.sv||{})[pid])bits.push('sobrou');if(G)bits.push(G+' gol'+(G>1?'s':''));if(A)bits.push(A+' assist.');if(C)bits.push(C+' contra');if(gm.craque===pid)bits.push('craque');
     return `<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><span class="tag" style="${res==='V'?'color:var(--good);border-color:var(--good)':res==='D'?'color:var(--bad);border-color:var(--bad)':''}">${res}</span>
-      <span class="grow small">${dmy(gm.data)} · ${my}×${op}${bits.length?' · '+bits.join(', '):''}</span><b class="num ${gp<0?'dn':'okc'}">${sgn(gp)}</b></div>`;}).join('');
-  return `<div class="card"><div class="row"><div class="grow"><h2>${esc(p.nome)}</h2><div class="small mut">${p.pos==='GOL'?'Goleiro':'Linha'} · ${esc(p.ano||'')}${p.ativo===false?' · inativo':''}</div></div>
+      <span class="grow small">${dmy(gm.data)}${isQ()?'':` · ${my}×${op}`}${bits.length?' · '+bits.join(', '):''}</span><b class="num ${gp<0?'dn':'okc'}">${sgn(gp)}</b></div>`;}).join('');
+  return `<div class="card"><div class="row"><div class="grow"><h2>${esc(p.nome)}</h2><div class="small mut">${isQ()?'Queimado':p.pos==='GOL'?'Goleiro':'Linha'}${p.ano?' · '+esc(p.ano):''}${p.ativo===false?' · inativo':''}</div></div>
       <div style="text-align:right"><div class="price num">${cs(p.preco)}</div>${st.vari?`<div class="tiny num ${st.vari>0?'up':'dn'}">${st.vari>0?'▲':'▼'} ${n1(Math.abs(st.vari))}</div>`:''}</div></div>
     ${ME&&open&&p.ativo!==false?`<button class="btn ${inT?'ghost':''}" onclick="escW('${pid}')">${inT?'Tirar do meu time':'Escalar'}</button>`:''}
     ${hoje!=null?`<div class="small okc">${hoje} pts nesta rodada (parcial)</div>`:''}
     <div class="stats"><div><b class="num">${st.pts}</b><span>pontos</span></div><div><b class="num">${j}</b><span>jogos</span></div><div><b class="num">${st.media==null?'–':n1(st.media)}</b><span>média</span></div><div><b class="num">${v}</b><span>vitórias</span></div>
-      <div><b class="num">${g}</b><span>gols</span></div><div><b class="num">${a}</b><span>assist.</span></div><div><b class="num">${cr}</b><span>craque</span></div><div><b class="num">${gc}</b><span>contra</span></div></div>
-    <div class="tiny mut">Pontos e média contam só as rodadas encerradas. Jogos, gols e vitórias contam todos os jogos lançados.</div></div>
+      ${isQ()?`<div><b class="num">${qm}</b><span>queimou</span></div><div><b class="num">${sv}</b><span>sobrou</span></div><div><b class="num">${cr}</b><span>craque</span></div><div><b class="num">${j?Math.round(v/j*100)+'%':'–'}</b><span>aproveit.</span></div>`
+      :`<div><b class="num">${g}</b><span>gols</span></div><div><b class="num">${a}</b><span>assist.</span></div><div><b class="num">${cr}</b><span>craque</span></div><div><b class="num">${gc}</b><span>contra</span></div>`}</div>
+    <div class="tiny mut">Pontos e média contam só as rodadas encerradas. ${isQ()?'Jogos, queimadas e vitórias':'Jogos, gols e vitórias'} contam todos os jogos lançados.</div></div>
     ${precos.length>1?`<div class="card"><div class="lbl">Preço</div>${lineSVG(precos,lab)}</div>`:''}
     ${pts.length?`<div class="card"><div class="lbl">Pontos por rodada</div>${barsSVG(pts,last12.map(rr=>'R'+rr))}</div>`:''}
     <div class="card"><div class="lbl">Últimos jogos</div>${gl||'<div class="small mut">Ainda não jogou.</div>'}</div>`;
@@ -628,7 +663,7 @@ function perfilSheet(uid){
   const hist=done.slice().reverse().map(rr=>{const t=((S.rodadas[rKey(rr)]||{}).times||{})[uid],pt=P[rKey(rr)];
     if(!t)return `<div class="ev"><span class="nmx">Rodada ${rr} <span class="tag">sem time</span></span></div>`;
     return `<div class="ev"><span class="nmx">Rodada ${rr} <span class="tag" style="${pt===best?'border-color:var(--gold);color:var(--ink)':''}">${pt??0} pts${pt===best&&jogou.length>1?' · melhor':''}</span></span>${teamTags(t,donePP(rr))}</div>`;}).join('');
-  const curH=cur&&cur.gol?(canSee?`<div class="ev"><span class="nmx">Rodada ${r} <span class="tag">${open?'time atual':`parcial ${teamPts(cur,pp)} pts`}</span></span>${teamTags(cur,open?{}:pp)}</div>`
+  const curH=hasT(cur)?(canSee?`<div class="ev"><span class="nmx">Rodada ${r} <span class="tag">${open?'time atual':`parcial ${teamPts(cur,pp)} pts`}</span></span>${teamTags(cur,open?{}:pp)}</div>`
     :`<div class="ev"><span class="nmx">Rodada ${r}</span><span class="small mut">O time aparece quando o mercado fechar.</span></div>`):'';
   return `<div class="card"><div class="row"><span class="av" style="width:44px;height:44px;font-size:18px">${esc((u.nome||'?').slice(0,1).toUpperCase())}</span><div class="grow"><h2>${esc(u.nome)}</h2><div class="small mut">${pos}º no geral${me?' · você':''}</div></div></div>
     <div class="stats"><div><b class="num">${P.total||0}</b><span>total</span></div><div><b class="num">${media==null?'–':n1(media)}</b><span>média</span></div><div><b class="num">${best??'–'}</b><span>melhor</span></div><div><b class="num">${mitadas}</b><span>mitadas</span></div></div></div>
@@ -638,7 +673,7 @@ function perfilSheet(uid){
 
 /* ---- imagem pra compartilhar ---- */
 async function compartilhar(){
-  const t0=S.times[ME.uid];if(!t0||!t0.gol)return toast('Salve um time primeiro.');
+  const t0=S.times[ME.uid];if(!hasT(t0))return toast('Salve um time primeiro.');
   let t=t0,pp={},titulo,pts=null;const open=aberto(),r=R(),last=roundsDone().slice(-1)[0],lt=last&&((S.rodadas[rKey(last)]||{}).times||{})[ME.uid];
   if(!open&&gamesOf(r).length){pp=roundPts(r).pp;pts=teamPts(t0,pp);titulo=`Parcial da rodada ${r}`;}
   else if(lt){t=lt;pp=donePP(last);pts=lt.pts||0;titulo=`Rodada ${last}`;}
@@ -648,15 +683,16 @@ async function compartilhar(){
   const W=1080,H=1350,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
   const D="'Bricolage Grotesque','Arial Black',sans-serif",B="'Figtree',Arial,sans-serif";
   x.fillStyle='#910642';x.fillRect(0,0,W,H);
-  x.fillStyle='#fff';x.textBaseline='alphabetic';x.font=`800 76px ${D}`;x.fillText('CEArtola',64,124);
+  x.fillStyle='#fff';x.textBaseline='alphabetic';x.font=`800 76px ${D}`;x.fillText(isQ()?'CEArtola 🔥':'CEArtola',64,124);
   const nome=(S.users[ME.uid]||{}).nome||'';x.font=`600 40px ${B}`;x.fillStyle='rgba(255,255,255,.85)';x.fillText(`${nome} · ${titulo}`.slice(0,40),64,184);
   if(pts!=null){x.textAlign='right';x.fillStyle='#fff';x.font=`800 120px ${D}`;x.fillText(String(pts),W-64,150);x.font=`700 34px ${B}`;x.fillText('pontos',W-64,192);x.textAlign='left';}
   const cx=64,cy=240,cw=W-128,ch=880,rr=(X,Y,w,h,rad)=>{x.beginPath();x.moveTo(X+rad,Y);x.arcTo(X+w,Y,X+w,Y+h,rad);x.arcTo(X+w,Y+h,X,Y+h,rad);x.arcTo(X,Y+h,X,Y,rad);x.arcTo(X,Y,X+w,Y,rad);x.closePath();};
   x.fillStyle='#0b0b0b';rr(cx,cy,cw,ch,28);x.fill();
   x.strokeStyle='rgba(255,255,255,.6)';x.lineWidth=4;rr(cx+24,cy+24,cw-48,ch-48,10);x.stroke();
-  x.beginPath();x.moveTo(cx+24,cy+ch/2);x.lineTo(cx+cw-24,cy+ch/2);x.stroke();x.beginPath();x.arc(W/2,cy+ch/2,110,0,Math.PI*2);x.stroke();
-  x.beginPath();x.arc(W/2,cy+24,190,0,Math.PI);x.stroke();x.beginPath();x.arc(W/2,cy+ch-24,190,Math.PI,0);x.stroke();
-  const {ids,subs}=effTeam(t,pp),pos=[[.5,.15],[.2,.39],[.8,.39],[.5,.58],[.5,.79]],starters=[...(t.linha||[]),t.gol];
+  x.beginPath();x.moveTo(cx+24,cy+ch/2);x.lineTo(cx+cw-24,cy+ch/2);x.stroke();
+  if(isQ()){x.setLineDash([16,12]);x.strokeRect(cx+24,cy+24,cw-48,100);x.strokeRect(cx+24,cy+ch-124,cw-48,100);x.setLineDash([]);}
+  else{x.beginPath();x.arc(W/2,cy+ch/2,110,0,Math.PI*2);x.stroke();x.beginPath();x.arc(W/2,cy+24,190,0,Math.PI);x.stroke();x.beginPath();x.arc(W/2,cy+ch-24,190,Math.PI,0);x.stroke();}
+  const {ids,subs}=effTeam(t,pp),pos=isQ()?[[.5,.2],[.2,.38],[.8,.38],[.3,.62],[.7,.62]]:[[.5,.15],[.2,.39],[.8,.39],[.5,.58],[.5,.79]],starters=isQ()?[...(t.linha||[])]:[...(t.linha||[]),t.gol];
   starters.forEach((sid,i)=>{const id=subs[sid]||sid,p=J(id);if(!p)return;const px=cx+cw*pos[i][0],py=cy+ch*pos[i][1];
     x.fillStyle='#fff';x.beginPath();x.arc(px,py,64,0,Math.PI*2);x.fill();x.strokeStyle='#910642';x.lineWidth=8;x.stroke();
     x.fillStyle='#140b10';x.textAlign='center';x.font=`800 44px ${D}`;x.fillText(p.nome.slice(0,2).toUpperCase(),px,py+15);
@@ -676,7 +712,7 @@ window.compartilharW=()=>compartilhar();
 
 /* ---- Meu time ---- */
 function vTime(){
-  if(!S.meta)return `<div class="stack">${!ME?loginCard():''}<div class="card"><h3>O CEArtola ainda não começou</h3><div class="mut">O admin precisa criar os jogadores e abrir a primeira rodada.</div>${isAdmin()?'<button class="btn" onclick="go(\'admin\')">Ir pro Admin</button>':''}</div></div>`;
+  if(!S.meta)return `<div class="stack">${!ME?loginCard():''}<div class="card"><h3>${isQ()?'O fantasy de queimado':'O CEArtola'} ainda não começou</h3><div class="mut">O admin precisa criar os jogadores e abrir a primeira rodada.</div>${isAdmin()?'<button class="btn" onclick="go(\'admin\')">Ir pro Admin</button>':''}</div></div>`;
   if(!ME)return `<div class="stack">${loginCard()}${rulesCard()}</div>`;
   const nome=(S.users[ME.uid]||{}).nome||'';
   const nick=ui.nick?`<div class="row"><input id="nick" class="inp grow" maxlength="20" value="${esc(nome)}" aria-label="Apelido"><button class="btn sm" onclick="saveNickW()">Salvar</button></div>`
@@ -684,16 +720,16 @@ function vTime(){
   const open=aberto(),saved=S.times[ME.uid],t=open?draft:saved,{pp}=roundPts(R());
   const ids=teamIds(t),cost=teamCost(t),bud=budgetOf(ME.uid),over=cost>bud+1e-9,changed=open&&!sameTeam(draft,saved);
   const eff=!open&&saved?effTeam(saved,pp):{ids:[],subs:{}},entrou=Object.values(eff.subs);
-  const slot=(s,cls)=>{const id=s==='g'?t&&t.gol:t&&t.linha&&t.linha[s],p=id&&J(id);
+  const slot=(s,cls)=>{const id=s==='g'?t&&t.gol:t&&t.linha&&t.linha[s],p=id&&J(id),vaz=s==='g'?'Goleiro':isQ()?'Jogador':'Linha';
     return `<button class="slot ${cls} ${p?'full':''} ${ui.sel===s?'sel':''} ${p&&eff.subs[id]?'out':''}" onclick="tapSlotW('${s}')" aria-label="${s==='g'?'Goleiro':'Linha'}">
       ${p&&t.cap===id?'<span class="cap">C</span>':''}${p&&!open&&pp[id]!=null?`<span class="pts">${pp[id]*(t.cap===id?2:1)}</span>`:''}
-      <span class="sh">${p?esc(p.nome.slice(0,2).toUpperCase()):(open?'+':'–')}</span><span class="nm">${p?esc(p.nome):s==='g'?'Goleiro':'Linha'}</span>${p?`<span class="pr">${cs(p.preco)}</span>`:''}</button>`;};
+      <span class="sh">${p?esc(p.nome.slice(0,2).toUpperCase()):(open?'+':'–')}</span><span class="nm">${p?esc(p.nome):vaz}</span>${p?`<span class="pr">${cs(p.preco)}</span>`:''}</button>`;};
   const selBar=open&&ui.sel!=null?(()=>{const s=ui.sel,id=slotId(s),rsv=s==='rg'||s==='rl';return `<div class="row" style="flex-wrap:wrap"><button class="grow small lnk" style="text-align:left" onclick="ficha('${id}')"><b>${esc(pName(id))}</b> <span class="mut">ver ficha</span></button>
     ${rsv?'':`<button class="btn sm" onclick="capW('${s}')">Capitão</button>`}<button class="btn sm ghost" onclick="trocaW('${s}')">Trocar</button><button class="btn sm ghost" onclick="tirarW('${s}')">Tirar</button></div>`;})():'';
   const bslot=s=>{const id=t&&t.res&&t.res[s==='rg'?'g':'l'],p=id&&J(id),inn=entrou.includes(id);
     return `<button class="bs ${p?'full':''} ${ui.sel===s?'sel':''}" onclick="tapSlotW('${s}')" aria-label="${s==='rg'?'Reserva do gol':'Reserva de linha'}"><span class="sh">${p?esc(p.nome.slice(0,2).toUpperCase()):(open?'+':'–')}</span>
-      <span style="min-width:0"><span class="nm">${p?esc(p.nome):s==='rg'?'Reserva do gol':'Reserva de linha'}</span><span class="tiny ${inn?'okc':'mut'}">${p?(inn?`entrou · ${pp[id]} pts`:cs(p.preco)):(open?'opcional':'vazio')}</span></span></button>`;};
-  const bench=`<div class="bench"><span class="lbl">Banco</span>${bslot('rg')}${bslot('rl')}</div>`;
+      <span style="min-width:0"><span class="nm">${p?esc(p.nome):s==='rg'?'Reserva do gol':isQ()?'Reserva':'Reserva de linha'}</span><span class="tiny ${inn?'okc':'mut'}">${p?(inn?`entrou · ${pp[id]} pts`:cs(p.preco)):(open?'opcional':'vazio')}</span></span></button>`;};
+  const bench=`<div class="bench"><span class="lbl">Banco</span>${isQ()?'':bslot('rg')}${bslot('rl')}</div>`;
   const errs=open?validTeam(draft):[];
   const last=roundsDone().slice(-1)[0],lastPts=last&&S.pontos[ME.uid]?S.pontos[ME.uid][rKey(last)]:null;
   const info=open?`<div class="row"><span class="grow small">Custo <b class="num">${cs(cost)}</b> de <b class="num">${cs(bud)}</b></span><span class="small num ${over?'warn':'okc'}">${over?'Faltam '+cs(cost-bud):'Sobram '+cs(bud-cost)}</span></div>
@@ -706,11 +742,12 @@ function vTime(){
   return `<div class="stack">
     <div class="card">${nick}</div>
     <div class="card"><div class="row"><h3 class="grow">Meu time</h3>${lastPts!=null?`<span class="tag">Rodada ${last}: ${lastPts} pts</span>`:''}<span class="tag">Total ${(S.pontos[ME.uid]||{}).total||0}</span></div>
-      <div class="court"><span class="area t"></span><span class="area b"></span><span class="circ"></span>${slot(0,'s0')}${slot(1,'s1')}${slot(2,'s2')}${slot(3,'s3')}${slot('g','sg')}</div>
+      ${isQ()?`<div class="court"><span class="cem t">cemitério</span><span class="cem b">cemitério</span>${[0,1,2,3,4].map(i=>slot(i,'q'+i)).join('')}</div>`
+        :`<div class="court"><span class="area t"></span><span class="area b"></span><span class="circ"></span>${slot(0,'s0')}${slot(1,'s1')}${slot(2,'s2')}${slot(3,'s3')}${slot('g','sg')}</div>`}
       ${bench}
       ${open?`<div class="small mut" style="text-align:center">${ui.sel!=null?'':'Toque numa vaga vazia pra escolher no mercado. Toque num jogador pra trocar, tirar ou fazer capitão. O banco é opcional e não gasta orçamento.'}</div>`:''}
       ${selBar}${info}
-      ${saved&&saved.gol?`<button class="btn ghost" onclick="compartilharW()">Compartilhar imagem do time</button>`:''}</div>
+      ${hasT(saved)?`<button class="btn ghost" onclick="compartilharW()">Compartilhar imagem do time</button>`:''}</div>
     ${rulesCard()}</div>`;
 }
 window.ui_nick=()=>{ui.nick=true;render();setTimeout(()=>{const e=$('nick');if(e)e.focus();},50);};
@@ -721,6 +758,10 @@ window.tirarW=s=>tirar(sk(s));
 window.trocaW=s=>{const k=sk(s);ui.sel=null;ui.pick=k;ui.filtro=(k==='g'||k==='rg')?'GOL':'LINHA';ui.tab='mercado';render();window.scrollTo(0,0);};
 window.salvarW=()=>salvar();
 function rulesCard(){
+  if(isQ())return `<div class="card"><div class="lbl">Como funciona o queimado</div>
+    <div class="small">Monte um time de <b>5 jogadores</b> dentro do orçamento e escolha o <b>capitão</b>, que pontua em dobro. O mercado fecha antes do recreio; quando a rodada acaba, os preços sobem pra quem foi bem e caem pra quem foi mal.</div>
+    <div class="small"><b>Pontos por jogo:</b> jogou +${PTS_Q.jogou} · time venceu +${PTS_Q.vitoria} · cada pessoa que queimou +${PTS_Q.queimou} · sobrou vivo até o fim +${PTS_Q.sobrou} · craque do jogo +${PTS_Q.craque}</div>
+    <div class="small"><b>Banco:</b> 1 reserva, de graça. Se um titular não jogar na rodada, o reserva entra no lugar (se ele jogou). O reserva tem que custar no máximo o mesmo que o titular mais barato.</div></div>`;
   return `<div class="card"><div class="lbl">Como funciona</div>
     <div class="small">Monte <b>1 goleiro + 4 de linha</b> dentro do orçamento e escolha o <b>capitão</b>, que pontua em dobro. O mercado fecha antes dos jogos; quando a rodada acaba, os preços sobem pra quem pontuou bem e caem pra quem foi mal.</div>
     <div class="small"><b>Pontos por jogo:</b> jogou +${PTS.jogou} · time venceu +${PTS.vitoria} · gol +${PTS.gol} · assistência +${PTS.assist} · gol contra ${PTS.golContra} · goleiro do time vencedor +${PTS.goleiroVitoria} · craque do jogo +${PTS.craque}</div>
@@ -732,23 +773,23 @@ function vMercado(){
   if(!S.meta)return `<div class="card"><div class="mut">O mercado abre quando o admin criar a primeira rodada.</div></div>`;
   const open=aberto(),mine=ME&&open&&draft?new Set(teamIds(draft).concat(resIds(draft))):new Set(),reserva=ME&&open&&draft?new Set(resIds(draft)):new Set(),{pp}=roundPts(R());
   let ps=Object.entries(S.jog).filter(([,p])=>p.ativo!==false).map(([id,p])=>({id,...p,st:pStats(id)}));
-  if(ui.filtro!=='todos')ps=ps.filter(p=>p.pos===ui.filtro);
+  if(ui.filtro!=='todos'&&!isQ())ps=ps.filter(p=>p.pos===ui.filtro);
   if(ui.ano!=='todos')ps=ps.filter(p=>p.ano===ui.ano);
   const sorts={preco:(a,b)=>(b.preco||0)-(a.preco||0),media:(a,b)=>(b.st.media??-1)-(a.st.media??-1),pts:(a,b)=>b.st.pts-a.st.pts,nome:(a,b)=>a.nome.localeCompare(b.nome)};
   ps.sort(sorts[ui.sort]||sorts.preco);
-  const pkTxt={g:'o goleiro',rg:'a reserva do gol',rl:'o reserva de linha'}[ui.pick]||'um jogador de linha';
+  const pkTxt=isQ()?(ui.pick==='rl'?'o reserva':'um jogador'):({g:'o goleiro',rg:'a reserva do gol',rl:'o reserva de linha'}[ui.pick]||'um jogador de linha');
   const pkMax=draft&&ui.pick==='rg'&&draft.gol&&J(draft.gol)?J(draft.gol).preco:draft&&ui.pick==='rl'&&draft.linha.filter(Boolean).length?Math.min(...draft.linha.filter(Boolean).map(id=>(J(id)||{}).preco||PRECO.base)):null;
   const pickBar=ui.pick!=null?`<div class="card" style="border-color:var(--acc)"><div class="row"><span class="grow"><b>Escolhendo ${pkTxt}</b>${pkMax!=null?`<div class="tiny mut">Custando até ${cs(pkMax)}</div>`:''}</span><button class="btn sm ghost" onclick="cancelPick()">Cancelar</button></div></div>`:'';
   const saldo=ME&&open&&draft?`<div class="small mut">Seu saldo: <b class="num" style="color:var(--ink)">${cs(budgetOf(ME.uid)-teamCost(draft))}</b></div>`:'';
   const rows=ps.map(p=>{const inT=mine.has(p.id),v=p.st.vari;
     const act=!ME?'':open?`<button class="btn sm ${inT?'ghost':''}" onclick="escW('${p.id}')">${inT?'Tirar':'Escalar'}</button>`:'';
-    return `<div class="pl ${inT?'me':''}"><button class="lnk" style="min-width:0;text-align:left" onclick="ficha('${p.id}')"><div class="nm">${esc(p.nome)} <span class="tag">${p.pos==='GOL'?'GOL':'LINHA'}</span>${reserva.has(p.id)?' <span class="tag">banco</span>':''}</div>
+    return `<div class="pl ${inT?'me':''}"><button class="lnk" style="min-width:0;text-align:left" onclick="ficha('${p.id}')"><div class="nm">${esc(p.nome)} ${isQ()?'':`<span class="tag">${p.pos==='GOL'?'GOL':'LINHA'}</span>`}${reserva.has(p.id)?' <span class="tag">banco</span>':''}</div>
       <div class="sub"><span>${esc(p.ano||'')}</span><span>${p.st.j} jogo${p.st.j===1?'':'s'}</span><span>média ${p.st.media==null?'–':n1(p.st.media)}</span>${!open&&pp[p.id]!=null?`<span class="okc">${pp[p.id]} pts hoje</span>`:''}</div></button>
       <div class="row" style="gap:8px"><div><div class="price num">${cs(p.preco)}</div>${v?`<div class="tiny num ${v>0?'up':'dn'}" style="text-align:right">${v>0?'▲':'▼'} ${n1(Math.abs(v))}</div>`:''}</div>${act}</div></div>`;}).join('');
   return `<div class="stack">${pickBar}
     <div class="card">
       <div class="row"><h3 class="grow">Mercado</h3>${open?'<span class="pill open">aberto</span>':'<span class="pill closed">fechado</span>'}</div>${saldo}
-      <div class="seg">${[['todos','Todos'],['GOL','Goleiros'],['LINHA','Linha']].map(([k,n])=>`<button class="${ui.filtro===k?'on':''}" onclick="setF('filtro','${k}')">${n}</button>`).join('')}</div>
+      ${isQ()?'':`<div class="seg">${[['todos','Todos'],['GOL','Goleiros'],['LINHA','Linha']].map(([k,n])=>`<button class="${ui.filtro===k?'on':''}" onclick="setF('filtro','${k}')">${n}</button>`).join('')}</div>`}
       <div class="row"><select class="inp" id="fano" onchange="setF('ano',this.value)"><option value="todos">Todos os anos</option>${ANOS.map(a=>`<option ${ui.ano===a?'selected':''}>${a}</option>`).join('')}</select>
         <select class="inp" id="fsort" onchange="setF('sort',this.value)">${[['preco','Maior preço'],['media','Melhor média'],['pts','Mais pontos'],['nome','Nome']].map(([k,n])=>`<option value="${k}" ${ui.sort===k?'selected':''}>${n}</option>`).join('')}</select></div>
       ${!ME?'<div class="small mut">Entre com o Google (aba Meu time) pra escalar.</div>':''}
@@ -772,7 +813,7 @@ function vRanking(){
   const teamOf=u=>ui.rk==='ultima'?(((S.rodadas[rKey(last)]||{}).times||{})[u.uid]):u.team;
   const rows=list.map((u,i)=>{const t=teamOf(u);
     return `<button class="rk ${ME&&u.uid===ME.uid?'me':''}" onclick="perfil('${u.uid}')"><span class="pos">${i+1}</span><span class="av">${esc(u.nome.slice(0,1).toUpperCase())}</span>
-      <span style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.nome)}</b>${t&&t.gol?'':'<span class="tiny mut">sem time</span>'}</span><span class="pt num">${val(u)}</span></button>`;}).join('');
+      <span style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(u.nome)}</b>${hasT(t)?'':'<span class="tiny mut">sem time</span>'}</span><span class="pt num">${val(u)}</span></button>`;}).join('');
   const empty=ui.rk==='atual'?(open?'A rodada ainda não começou: o mercado está aberto.':'Ninguém pontuou ainda nesta rodada.'):ui.rk==='ultima'?'Nenhuma rodada encerrada ainda.':'Ninguém entrou ainda.';
   return `<div class="stack">${mitoCard()}<div class="card"><div class="row"><h3 class="grow">Ranking</h3>${L?`<span class="tag">${esc(L.nome)}</span>`:''}</div>
     ${ligas.length?`<select class="inp" id="rliga" onchange="setLiga(this.value)" aria-label="Liga"><option value="">Geral (todo mundo)</option>${ligas.map(([c,l])=>`<option value="${c}" ${ui.liga===c?'selected':''}>Liga: ${esc(l.nome)}</option>`).join('')}</select>`:''}
@@ -784,6 +825,7 @@ window.setLiga=v=>{ui.liga=v;saveLiga();render();};
 
 /* ---- Jogos ---- */
 function gameCard(id,g,admin){
+  if(isQ())return gameCardQ(id,g,admin);
   const gp=gamePts(g),win=g.pa>g.pb?'a':g.pb>g.pa?'b':null;
   const side=s=>Object.keys(g[s]||{}).sort((x,y)=>(gp[y]||0)-(gp[x]||0)||pName(x).localeCompare(pName(y))).map(pid=>{const gl=(g.gols||{})[pid]||0,as=(g.ast||{})[pid]||0,gc=(g.gc||{})[pid]||0,gk=(s==='a'?g.ga:g.gb)===pid;
     return `<div class="gl"><button class="lnk" style="text-align:left;min-width:0" onclick="ficha('${pid}')">${esc(pName(pid))}${gk?' 🧤':''}${gl?' '+'⚽'.repeat(Math.min(gl,5))+(gl>5?'×'+gl:''):''}${as?' 🅰️'+(as>1?'×'+as:''):''}${gc?` <span class="dn tiny">GC${gc>1?'×'+gc:''}</span>`:''}${g.craque===pid?' ⭐':''}</button><span class="p ${(gp[pid]||0)<0?'dn':''}">${sgn(gp[pid]||0)}</span></div>`;}).join('');
@@ -793,13 +835,58 @@ function gameCard(id,g,admin){
     <div class="score"><span class="ta lbl" style="color:${win==='a'?'var(--good)':'var(--mut)'}">Time A</span><span class="num"><b>${g.pa}</b> × <b>${g.pb}</b></span><span class="lbl" style="color:${win==='b'?'var(--good)':'var(--mut)'}">Time B</span></div>
     <div class="cols"><div class="side">${side('a')}${semAutor('a')}</div><div class="side">${side('b')}${semAutor('b')}</div></div></div>`;
 }
+function gameCardQ(id,g,admin){
+  const gp=gamePts(g),win=g.pa>g.pb?'a':g.pb>g.pa?'b':null;
+  const side=s=>Object.keys(g[s]||{}).sort((x,y)=>(gp[y]||0)-(gp[x]||0)||pName(x).localeCompare(pName(y))).map(pid=>{const q=(g.qm||{})[pid]||0,v=(g.sv||{})[pid];
+    return `<div class="gl"><button class="lnk" style="text-align:left;min-width:0" onclick="ficha('${pid}')">${esc(pName(pid))}${q?' 🔥'+(q>1?'×'+q:''):''}${v?' 🛡️':''}${g.craque===pid?' ⭐':''}</button><span class="p">${sgn(gp[pid]||0)}</span></div>`;}).join('');
+  return `<div class="card game"><div class="row"><span class="lbl grow">${dmy(g.data)}${g.craque?` · craque: ${esc(pName(g.craque))}`:''}</span>
+      ${admin?`<button class="btn sm ghost" onclick="fEditW('${id}')">Editar</button><button class="btn sm ghost" onclick="fDelW('${id}')">${ui.arm==='del'+id?'Confirmar':'Apagar'}</button>`:''}</div>
+    <div class="score"><span class="ta lbl" style="color:${win==='a'?'var(--good)':'var(--mut)'}">${win==='a'?'🏆 ':''}Time A</span><span class="small mut">×</span><span class="lbl" style="color:${win==='b'?'var(--good)':'var(--mut)'}">Time B${win==='b'?' 🏆':''}</span></div>
+    <div class="cols"><div class="side">${side('a')}</div><div class="side">${side('b')}</div></div>
+    <div class="tiny mut">🔥 queimou · 🛡️ sobrou até o fim · ⭐ craque</div></div>`;
+}
 window.fEditW=id=>fEdit(id);window.fDelW=id=>fDel(id);
+function sorteioCard(){
+  const act=Object.entries(S.jog).filter(([,p])=>p.ativo!==false).sort((a,b)=>a[1].nome.localeCompare(b[1].nome));if(!act.length)return '';
+  const so=ui.sorte,last=S.sorteio;
+  if(!so.pres[MODO]){so.pres[MODO]={};if(last&&last.a)[...Object.keys(last.a),...Object.keys(last.b||{})].forEach(id=>{if(S.jog[id])so.pres[MODO][id]=true;});}
+  const pres=so.pres[MODO],n=Object.keys(pres).filter(id=>S.jog[id]).length;
+  const res=so.res&&so.res.m===MODO?so.res:(last&&last.a?{a:Object.keys(last.a).filter(id=>S.jog[id]),b:Object.keys(last.b||{}).filter(id=>S.jog[id]),ts:last.ts,salvo:true}:null);
+  const lista=ids=>ids.map(id=>`<span class="tag">${esc(pName(id))}${!isQ()&&J(id)&&J(id).pos==='GOL'?' 🧤':''}</span>`).join('');
+  return `<details class="card"><summary>🎲 Sortear times</summary><div class="stack" style="margin-top:10px;gap:10px">
+    <div class="small mut">Marque quem vai jogar e sorteie dois times.</div>
+    <div class="chips">${act.map(([id,p])=>`<button class="chip ${pres[id]?'a':''}" onclick="soTog('${id}')">${pres[id]?'✓ ':''}${esc(p.nome)}</button>`).join('')}</div>
+    <div class="row"><button class="btn sm ghost" onclick="soAll(1)">Todos</button><button class="btn sm ghost" onclick="soAll(0)">Limpar</button><span class="grow small mut" style="text-align:right">${n} marcado${n===1?'':'s'}${n>1?` · ${Math.ceil(n/2)} x ${Math.floor(n/2)}`:''}</span></div>
+    <div class="seg"><button class="${so.eq?'on':''}" onclick="soEq(1)">Equilibrado</button><button class="${so.eq?'':'on'}" onclick="soEq(0)">Aleatório</button></div>
+    <div class="tiny mut">${so.eq?'Equilibrado usa o preço de cada um pra dividir os melhores entre os dois times'+(isQ()?'':' e separa os goleiros')+'.':'Aleatório puro, sem olhar quem é melhor.'}</div>
+    <button class="btn" onclick="sortearW()" ${n<2?'disabled':''}>${res&&!res.salvo?'Sortear de novo':'Sortear'}</button>
+    ${res?`<div class="cols"><div class="card" style="background:var(--card2);gap:6px;padding:10px"><b>Time A <span class="tiny mut">(${res.a.length})</span></b><div class="tm">${lista(res.a)}</div></div><div class="card" style="background:var(--card2);gap:6px;padding:10px"><b>Time B <span class="tiny mut">(${res.b.length})</span></b><div class="tm">${lista(res.b)}</div></div></div>
+      <div class="tiny mut">${res.salvo?`Último sorteio do admin · ${new Date(res.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}`:isAdmin()?'Salvo: na hora de lançar o jogo, é só tocar em “Preencher com o último sorteio”.':'Sorteio feito só no seu celular.'}</div>`:''}
+  </div></details>`;
+}
+window.soTog=id=>{const p=ui.sorte.pres[MODO]||(ui.sorte.pres[MODO]={});if(p[id])delete p[id];else p[id]=true;render();};
+window.soAll=v=>{const p={};if(v)Object.entries(S.jog).forEach(([id,x])=>{if(x.ativo!==false)p[id]=true;});ui.sorte.pres[MODO]=p;render();};
+window.soEq=v=>{ui.sorte.eq=!!v;render();};
+window.sortearW=()=>{
+  const ids=Object.keys(ui.sorte.pres[MODO]||{}).filter(id=>S.jog[id]);if(ids.length<2)return;
+  const sh=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+  let A=[],B=[];
+  if(ui.sorte.eq){const pr=id=>(J(id).preco||PRECO.base),noise={};ids.forEach(id=>noise[id]=pr(id)+Math.random()*2);
+    const gk=isQ()?[]:sh(ids.filter(id=>J(id).pos==='GOL')),rest=ids.filter(id=>!gk.includes(id)).sort((x,y)=>noise[y]-noise[x]);
+    gk.forEach((id,i)=>(i%2?B:A).push(id));const sum=T=>T.reduce((s,id)=>s+pr(id),0);
+    rest.forEach(id=>{const T=A.length<B.length?A:B.length<A.length?B:(sum(A)<=sum(B)?A:B);T.push(id);});
+    if(Math.random()<.5)[A,B]=[B,A];}
+  else{const x=sh(ids.slice()),h=Math.ceil(x.length/2);A=x.slice(0,h);B=x.slice(h);}
+  ui.sorte.res={m:MODO,a:A,b:B,ts:Date.now()};
+  if(isAdmin()){const o={a:{},b:{},ts:Date.now()};A.forEach(i=>o.a[i]=true);B.forEach(i=>o.b[i]=true);db.set('sorteio',o).catch(showErr);}
+  render();
+};
 function vJogos(){
-  if(!S.meta)return '<div class="card"><div class="mut">Ainda não tem jogos.</div></div>';
+  if(!S.meta)return `<div class="stack">${sorteioCard()}<div class="card"><div class="mut">Ainda não tem jogos.</div></div></div>`;
   const r=R(),cur=gamesOf(r),{pp}=roundPts(r);
   const craques=Object.entries(pp).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const past=roundsDone().reverse().map(rr=>{const gs=gamesOf(rr);return `<details class="card"><summary>Rodada ${rr} · ${gs.length} jogo${gs.length===1?'':'s'}</summary><div class="stack" style="margin-top:10px">${gs.map(([id,g])=>gameCard(id,g,false)).join('')||'<div class="empty">Sem jogos.</div>'}</div></details>`;}).join('');
-  return `<div class="stack">
+  return `<div class="stack">${sorteioCard()}
     <div class="card"><div class="row"><h3 class="grow">Rodada ${r}</h3><span class="tag">${cur.length} jogo${cur.length===1?'':'s'}</span></div>
       ${craques.length?`<div class="small">Destaques: ${craques.map(([id,v])=>`<b>${esc(pName(id))}</b> ${v}`).join(' · ')}</div>`:`<div class="small mut">${aberto()?'Mercado aberto. Os jogos aparecem aqui depois que o admin lançar.':'Nenhum jogo lançado ainda nesta rodada.'}</div>`}
       <div class="tiny mut">Achou erro na súmula? Fala com o admin que ele corrige antes de encerrar a rodada.</div></div>
@@ -810,9 +897,9 @@ function vJogos(){
 /* ---- Admin ---- */
 function vAdmin(){
   if(!isAdmin())return '';
-  if(!S.meta)return `<div class="stack"><div class="card"><h2>Começar o CEArtola</h2><div class="mut">Isso cria os ${SEED.length} jogadores da lista (todos a ${cs(PRECO.base)}), o orçamento de ${cs(ORC_PADRAO)} e abre a rodada 1.</div>
+  if(!S.meta)return `<div class="stack"><div class="card"><h2>${isQ()?'Começar o fantasy de queimado':'Começar o CEArtola'}</h2><div class="mut">Isso cria os ${isQ()?SEED_Q.length:SEED.length} jogadores da lista${isQ()?' (todos a '+cs(PRECO.base)+')':''}, o orçamento de ${cs(ORC_PADRAO)} e abre a rodada 1.</div>
     <button class="btn" onclick="seedW()">Criar dados iniciais</button></div></div>`;
-  const r=R(),open=aberto(),cur=gamesOf(r),withTeam=Object.keys(S.times).filter(uid=>S.times[uid]&&S.times[uid].gol).length;
+  const r=R(),open=aberto(),cur=gamesOf(r),withTeam=Object.keys(S.times).filter(uid=>hasT(S.times[uid])).length;
   const rod=`<div class="card"><div class="row"><h3 class="grow">Rodada ${r}</h3>${open?'<span class="pill open">mercado aberto</span>':'<span class="pill closed">mercado fechado</span>'}</div>
     <div class="small mut">${Object.keys(S.users).length} participante(s) · ${withTeam} com time salvo · ${cur.length} jogo(s) lançado(s)</div>
     ${open?`<div class="small">Feche o mercado <b>antes do recreio</b>. Depois disso ninguém mexe no time e você pode lançar os jogos.</div><button class="btn" onclick="setStatusW('fechado')">Fechar mercado agora</button>
@@ -834,6 +921,10 @@ function formCard(){
   const byAno={};act.forEach(([id,p])=>{(byAno[p.ano||'Outro']=byAno[p.ano||'Outro']||[]).push([id,p]);});
   const chips=Object.keys(byAno).map(a=>`<div class="lbl" style="margin-top:4px">${esc(a)}</div><div class="chips">${byAno[a].map(([id,p])=>{const s=fSide(f,id);return `<button class="chip ${s||''}" onclick="fChipW('${id}')">${s?s.toUpperCase()+' · ':''}${esc(p.nome)}${p.pos==='GOL'?' 🧤':''}</button>`;}).join('')}</div>`).join('');
   const sideBox=s=>{const ids=Object.keys(f[s]);const k=s==='a'?'ga':'gb';
+    if(isQ())return `<div class="card" style="background:var(--card2);gap:8px;padding:12px 10px"><div class="row"><b class="grow">Time ${s.toUpperCase()}</b>
+      <button class="btn sm ${f.win===s?'':'ghost'}" onclick="fSetW('win','${s}')">${f.win===s?'🏆 Venceu':'Venceu?'}</button></div>
+      ${ids.length?ids.map(id=>`<div class="ev f"><span class="nmx">${esc(pName(id))}</span><div class="mini"><span aria-hidden="true">🔥</span><button onclick="fStW('qm','${id}',-1)" aria-label="Menos uma queimada">−</button><b class="num">${(f.qm||{})[id]||0}</b><button onclick="fStW('qm','${id}',1)" aria-label="Mais uma queimada">+</button></div>
+        <button class="chip ${(f.sv||{})[id]?'sv':''}" onclick="fSvW('${id}')">🛡️ ${(f.sv||{})[id]?'Sobrou':'Sobrou?'}</button></div>`).join(''):'<div class="small mut">Toque nos nomes acima.</div>'}</div>`;
     return `<div class="card" style="background:var(--card2);gap:8px;padding:12px 10px"><div class="row"><b class="grow">Time ${s.toUpperCase()}</b>
       <div class="step"><button onclick="fPlacW('${s}',-1)" aria-label="Menos">−</button><b class="num">${s==='a'?f.pa:f.pb}</b><button onclick="fPlacW('${s}',1)" aria-label="Mais">+</button></div></div>
       ${ids.length?ids.map(id=>`<div class="ev f"><span class="nmx">${esc(pName(id))}</span>${['gols','ast','gc'].map(k=>`<div class="mini"><span class="tiny ${k==='gc'?'dn':'mut'}" aria-hidden="true">${{gols:'⚽',ast:'🅰️',gc:'GC'}[k]}</span><button onclick="fStW('${k}','${id}',-1)" aria-label="Menos ${{gols:'gol',ast:'assistência',gc:'gol contra'}[k]}">−</button><b class="num">${(f[k]||{})[id]||0}</b><button onclick="fStW('${k}','${id}',1)" aria-label="Mais ${{gols:'gol',ast:'assistência',gc:'gol contra'}[k]}">+</button></div>`).join('')}</div>`).join('')
@@ -845,11 +936,16 @@ function formCard(){
     <label class="small">Data<input class="inp" type="date" id="fdata" value="${esc(f.data)}" onchange="fSetW('data',this.value)"></label>
     <div class="small mut">Toque no nome: 1 vez = Time A, 2 vezes = Time B, 3 vezes = tira.</div>
     ${chips}
-    <div class="tiny mut">⚽ gol · 🅰️ assistência · GC gol contra (conta pro outro time). Tudo opcional: se não lembrar, deixa em 0.</div>
+    ${sorteioFill(f)}
+    <div class="tiny mut">${isQ()?'🔥 quantas pessoas queimou · 🛡️ ficou vivo até o fim. Só o vencedor é obrigatório; o resto, se não lembrar, deixa em branco.':'⚽ gol · 🅰️ assistência · GC gol contra (conta pro outro time). Tudo opcional: se não lembrar, deixa em 0.'}</div>
     ${sideBox('a')}${sideBox('b')}
     ${all.length?`<label class="small">Craque do jogo<select class="inp" id="fcraque" onchange="fSetW('craque',this.value)"><option value="">—</option>${all.map(id=>`<option value="${id}" ${f.craque===id?'selected':''}>${esc(pName(id))}</option>`).join('')}</select></label>`:''}
     <button class="btn" onclick="fSaveW()">${f.id?'Salvar alterações':'Salvar jogo'}</button></div>`;
 }
+window.fSvW=id=>{const f=ui.form;f.sv=f.sv||{};if(f.sv[id])delete f.sv[id];else f.sv[id]=true;render();};
+function sorteioFill(f){const so=S.sorteio;if(!so||!so.a||Object.keys(f.a).length||Object.keys(f.b).length)return '';
+  return `<button class="btn ghost" onclick="fSorteio()">Preencher com o último sorteio (${new Date(so.ts).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})})</button>`;}
+window.fSorteio=()=>{const f=ui.form,so=S.sorteio;if(!f||!so)return;Object.keys(so.a||{}).forEach(id=>{if(S.jog[id])f.a[id]=true;});Object.keys(so.b||{}).forEach(id=>{if(S.jog[id])f.b[id]=true;});fAutoGK(f,'a');fAutoGK(f,'b');render();};
 window.fNew=()=>{ui.form=newForm();render();};window.fCancel=()=>{ui.form=null;render();};
 window.fChipW=id=>fChip(id);window.fStW=(k,id,d)=>fSt(k,id,d);window.fPlacW=(s,d)=>fPlac(s,d);window.fSetW=(k,v)=>fSet(k,v);window.fSaveW=()=>fSave();
 function playersCard(){
@@ -858,16 +954,16 @@ function playersCard(){
   return `<details class="card"><summary>Jogadores (${ps.filter(([,p])=>p.ativo!==false).length} ativos)</summary>
     <div class="stack" style="margin-top:10px;gap:0">
       <div class="small mut" style="padding-bottom:8px">Mude nome, ano e preço inicial. Desativar tira do mercado sem apagar o histórico.</div>
-      ${R()===1?`<button class="btn ghost" style="margin-bottom:10px" onclick="aplicarPrecosW()">${ui.arm==='precos'?'Toque de novo pra confirmar':'Aplicar preços iniciais (caros 14 · médios 10 · baratos 6)'}</button>`:''}
+      ${R()===1&&!isQ()?`<button class="btn ghost" style="margin-bottom:10px" onclick="aplicarPrecosW()">${ui.arm==='precos'?'Toque de novo pra confirmar':'Aplicar preços iniciais (caros 14 · médios 10 · baratos 6)'}</button>`:''}
       ${ps.map(([id,p])=>`<div class="ed"><input class="inp" id="pn-${id}" value="${esc(p.nome)}" onchange="pSetW('${id}','nome',this.value)" aria-label="Nome">
         <select class="inp" id="pa-${id}" onchange="pSetW('${id}','ano',this.value)">${ANOS.map(a=>`<option ${p.ano===a?'selected':''}>${a}</option>`).join('')}</select>
         <input class="inp num" id="pp-${id}" inputmode="decimal" value="${n1(p.preco)}" onchange="pSetW('${id}','preco',this.value)" aria-label="Preço">
-        <div class="ctl"><div class="seg" style="flex:1">${['LINHA','GOL'].map(x=>`<button class="${p.pos===x?'on':''}" onclick="pSetW('${id}','pos','${x}')">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div>
+        <div class="ctl">${isQ()?'<span class="grow"></span>':''}<div class="seg" style="flex:1;${isQ()?'display:none':''}">${['LINHA','GOL'].map(x=>`<button class="${p.pos===x?'on':''}" onclick="pSetW('${id}','pos','${x}')">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div>
         <button class="btn sm ${p.ativo===false?'':'ghost'}" onclick="pSetW('${id}','ativo',${p.ativo===false})">${p.ativo===false?'Reativar':'Desativar'}</button></div></div>`).join('')}
       <div class="stack" style="padding-top:12px;border-top:1px solid var(--line);gap:8px"><div class="lbl">Adicionar jogador</div>
         <input class="inp" id="np-nome" placeholder="Nome (use inicial se repetir)" value="${esc(n.nome)}" oninput="ui_np('nome',this.value)">
         <div class="row"><select class="inp" id="np-ano" onchange="ui_np('ano',this.value)">${ANOS.map(a=>`<option ${n.ano===a?'selected':''}>${a}</option>`).join('')}</select>
-          <div class="seg" style="flex:1">${['LINHA','GOL'].map(x=>`<button class="${n.pos===x?'on':''}" onclick="ui_np('pos','${x}',1)">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div></div>
+          <div class="seg" style="flex:1;${isQ()?'display:none':''}">${['LINHA','GOL'].map(x=>`<button class="${n.pos===x?'on':''}" onclick="ui_np('pos','${x}',1)">${x==='GOL'?'Goleiro':'Linha'}</button>`).join('')}</div></div>
         <button class="btn" onclick="pAddW()">Adicionar</button></div></div></details>`;
 }
 window.pSetW=(id,k,v)=>pSet(id,k,v);window.pAddW=()=>pAdd();window.ui_np=(k,v,r)=>{ui.newP[k]=v;if(r)render();};
@@ -875,7 +971,7 @@ function usersCard(){
   const us=Object.entries(S.users||{}).sort((a,b)=>(a[1].nome||'').localeCompare(b[1].nome||''));
   return `<details class="card"><summary>Participantes (${us.length})</summary><div class="stack" style="margin-top:10px;gap:8px">
     <div class="small mut">Excluir apaga o apelido, o time e os pontos da pessoa (inclusive das rodadas passadas). Se ela entrar de novo com a mesma conta Google, aparece de novo do zero.</div>
-    ${us.map(([uid,u])=>{const t=S.times[uid]&&S.times[uid].gol,pts=(S.pontos[uid]||{}).total||0,me=ME&&uid===ME.uid;
+    ${us.map(([uid,u])=>{const t=hasT(S.times[uid]),pts=(S.pontos[uid]||{}).total||0,me=ME&&uid===ME.uid;
       return `<div class="row" style="border-top:1px solid var(--line);padding-top:8px"><div class="grow" style="min-width:0"><b>${esc(u.nome||'?')}</b>${me?' <span class="tiny mut">(você)</span>':''}
         <div class="tiny mut">${n1(pts)} pts · ${t?'com time':'sem time'} · id ${esc(uid.slice(0,6))}</div></div>
         ${me?'':`<button class="btn sm ghost" style="color:var(--bad);border-color:var(--bad)" onclick="delUserW('${uid}')">${ui.arm==='du'+uid?'Confirmar':'Excluir'}</button>`}</div>`;}).join('')||'<div class="small mut">Ninguém entrou ainda.</div>'}
@@ -886,8 +982,8 @@ function configCard(){
     <label class="small">Orçamento inicial de cada participante (C$)<input class="inp num" id="orc" inputmode="numeric" value="${orc()}" onchange="setOrcW(this.value)"></label>
     <div class="tiny mut">Vale pra quem ainda não terminou uma rodada. Depois disso, o orçamento de cada um sobe ou desce com a valorização do próprio time.</div>
     <button class="btn ghost" onclick="doLogout()">Sair da conta</button></div></details>
-  <details class="card"><summary>Reiniciar tudo</summary><div class="stack" style="margin-top:10px">
-    <div class="small">Apaga <b>todos os jogos, rodadas, pontos e times</b> dos participantes, volta os preços pros iniciais (caros 14 · médios 10 · baratos 6) e abre a rodada 1.</div>
+  <details class="card"><summary>Reiniciar ${isQ()?'o queimado':'o futebol'}</summary><div class="stack" style="margin-top:10px">
+    <div class="small">Apaga <b>todos os jogos, rodadas, pontos e times ${isQ()?'do queimado':'do futebol'}</b>, volta os preços pros iniciais (${isQ()?'todos 10':'caros 14 · médios 10 · baratos 6'}) e abre a rodada 1. O outro modo não é mexido.</div>
     <div class="tiny mut">Continuam: a lista de jogadores, os apelidos e o orçamento. Não dá pra desfazer.</div>
     <label class="small">Escreva REINICIAR pra liberar<input class="inp" id="rst" autocomplete="off" value="${esc(ui.rst||'')}" oninput="rstIn(this.value)"></label>
     <button class="btn" id="rstb" style="background:var(--bad)" ${semAc(ui.rst||'')==='reiniciar'?'':'disabled'} onclick="reiniciarW()">Reiniciar tudo</button></div></details>`;
@@ -897,10 +993,11 @@ window.setOrcW=v=>setOrc(v);
 /* ===================== INÍCIO ===================== */
 try{api=DEMO?mockApi():await fireApi();}
 catch(e){$('app').innerHTML=`<div class="card"><h3>Não deu pra conectar</h3><div class="mut">Confira a internet e recarregue a página.</div></div>`;throw e;}
-const MAP={meta:'meta',jogadores:'jog',jogos:'jogos',times:'times',usuarios:'users',pontos:'pontos',rodadas:'rodadas',ligas:'ligas'};
+const MAP={meta:'meta',jogadores:'jog',jogos:'jogos',times:'times',pontos:'pontos',rodadas:'rodadas',sorteio:'sorteio'},SH={usuarios:'users',ligas:'ligas'};
 api.onAuth(u=>{ME=u;draft=null;ui.sel=null;render();});
-Object.keys(MAP).forEach(k=>api.listen(k,v=>{S[MAP[k]]=k==='meta'?v:(v||{});S.ready[k]=1;
-  if(k==='times'&&ME&&draft&&S.times[ME.uid]&&sameTeam(draft,S.times[ME.uid]))draft=null;render();}));
+['f','q'].forEach(m=>Object.keys(MAP).forEach(k=>api.listen((m==='q'?'q/':'')+k,v=>{const T=DS[m];T[MAP[k]]=(k==='meta'||k==='sorteio')?v:(v||{});T.ready[k]=1;
+  if(m===MODO&&k==='times'&&ME&&draft&&S.times[ME.uid]&&sameTeam(draft,S.times[ME.uid]))draft=null;render();})));
+Object.keys(SH).forEach(k=>api.listen(k,v=>{DS.f[SH[k]]=DS.q[SH[k]]=v||{};DS.f.ready[k]=DS.q.ready[k]=1;render();}));
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>

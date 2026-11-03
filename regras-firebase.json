@@ -16,10 +16,39 @@
     "pontos": {
       ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
     },
+    "sorteio": {
+      ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+    },
     "times": {
       "$uid": {
         ".write": "auth != null && ((auth.uid === $uid && root.child('meta/status').val() === 'aberto' && (!root.child('meta/fecha').exists() || now < root.child('meta/fecha').val())) || (auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true))",
         ".validate": "!newData.exists() || newData.hasChildren(['gol', 'linha', 'cap'])"
+      }
+    },
+    "q": {
+      "meta": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "jogadores": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "jogos": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "rodadas": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "pontos": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "sorteio": {
+        ".write": "auth != null && auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true"
+      },
+      "times": {
+        "$uid": {
+          ".write": "auth != null && ((auth.uid === $uid && root.child('q/meta/status').val() === 'aberto' && (!root.child('q/meta/fecha').exists() || now < root.child('q/meta/fecha').val())) || (auth.token.email === 'rafaelpcardoso07@gmail.com' && auth.token.email_verified === true))",
+          ".validate": "!newData.exists() || newData.hasChildren(['linha', 'cap'])"
+        }
       }
     },
     "usuarios": {
